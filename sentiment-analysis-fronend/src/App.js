@@ -92,7 +92,7 @@ function App() {
     const fetchChats = async () => {
       if (user && user.token) {
         try {
-          const res = await fetch('http://127.0.0.1:5000/chats', {
+          const res = await fetch('https://panda-chatbot.onrender.com/chats', {
             headers: { Authorization: user.token },
           });
           const data = await res.json();
@@ -127,7 +127,7 @@ function App() {
   useEffect(() => {
     if (!user || !user.token) return;
     sessions.forEach(session => {
-      fetch('http://127.0.0.1:5000/chats', {
+      fetch('https://panda-chatbot.onrender.com/chats', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -151,7 +151,7 @@ function App() {
     e.preventDefault();
     setAuthError('');
     try {
-      const res = await fetch('http://127.0.0.1:5000/register', {
+      const res = await fetch('https://panda-chatbot.onrender.com/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -178,7 +178,7 @@ function App() {
     e.preventDefault();
     setAuthError('');
     try {
-      const res = await fetch('http://127.0.0.1:5000/login', {
+      const res = await fetch('https://panda-chatbot.onrender.com/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -201,7 +201,7 @@ function App() {
 
   const handleLogout = async () => {
     if (user && user.token) {
-      await fetch('http://127.0.0.1:5000/logout', {
+      await fetch('https://panda-chatbot.onrender.com/logout', {
         method: 'POST',
         headers: { Authorization: user.token },
       });
@@ -250,7 +250,7 @@ function App() {
       return s;
     }));
     try {
-      const res = await fetch('http://127.0.0.1:5000/analyze-sentiment', {
+      const res = await fetch('https://panda-chatbot.onrender.com/analyze-sentiment', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -288,7 +288,7 @@ function App() {
     setSessions(sessions => sessions.filter(s => s.id !== id));
     // Remove from backend
     if (user && user.token) {
-      fetch('http://127.0.0.1:5000/chats', {
+      fetch('https://panda-chatbot.onrender.com/chats', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
