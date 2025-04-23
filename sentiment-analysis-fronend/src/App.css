@@ -1218,3 +1218,79 @@
     font-size: 1.2rem !important;
   }
 }
+
+@media (min-width: 900px) {
+  .auth-modal {
+    max-width: 420px;
+    min-width: 340px;
+    margin: 0 auto;
+    border-radius: 22px;
+    box-shadow: 0 0 40px 0 #22c55e33, 0 1.5px 8px #22c55e11;
+    padding: 44px 36px 32px 36px;
+    align-items: center;
+    display: flex;
+    flex-direction: column;
+  }
+  .auth-modal h2 {
+    width: 100%;
+    text-align: left;
+    margin-bottom: 24px;
+    font-size: 2rem;
+    font-weight: 700;
+    color: #22c55e;
+    letter-spacing: 0.5px;
+  }
+  .login-form {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 18px;
+  }
+  .login-form input {
+    width: 100%;
+    margin-bottom: 0;
+    padding: 18px 20px;
+    border-radius: 14px;
+    font-size: 1.15rem;
+    background: #181c2b;
+    border: none;
+    color: #fff;
+    box-shadow: 0 1.5px 8px #22c55e11;
+  }
+  .login-form button[type="submit"] {
+    width: 100%;
+    margin-top: 10px;
+    margin-bottom: 0;
+    padding: 16px 0;
+    border-radius: 14px;
+    font-size: 1.15rem;
+    font-weight: 700;
+    background: #22c55e;
+    color: #fff;
+    box-shadow: 0 2px 12px #22c55e22;
+    transition: background 0.2s;
+  }
+  .login-form button[type="submit"]:hover {
+    background: #16a34a;
+  }
+  .login-form .modal-link {
+    color: #22c55e;
+    text-decoration: underline;
+    font-size: 1rem;
+    margin-left: 4px;
+  }
+  .auth-modal .login-form {
+    margin-bottom: 0;
+  }
+  .auth-modal .login-form + div {
+    margin-top: 18px;
+    width: 100%;
+    text-align: left;
+  }
+  .modal-close-x {
+    top: 18px;
+    right: 24px;
+    font-size: 2rem;
+  }
+}
