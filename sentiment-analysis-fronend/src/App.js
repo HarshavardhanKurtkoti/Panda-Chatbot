@@ -34,11 +34,11 @@ function App() {
 
   const [showDeleteDialog, setShowDeleteDialog] = useState({ open: false, sessionId: null });
 
-  const chats = [
-    { title: 'Plan a 3-day trip', desc: 'A 3-day trip to see the northern lights in Norway...' },
-    { title: 'Ideas for a customer loyalty program', desc: 'Here are seven ideas for a customer loyalty...' },
-    { title: 'Help me pick', desc: 'Here are some gift ideas for your fishing-loving...' },
-  ];
+  // const chats = [
+  //   { title: 'Plan a 3-day trip', desc: 'A 3-day trip to see the northern lights in Norway...' },
+  //   { title: 'Ideas for a customer loyalty program', desc: 'Here are seven ideas for a customer loyalty...' },
+  //   { title: 'Help me pick', desc: 'Here are some gift ideas for your fishing-loving...' },
+  // ];
 
   const [showProfile, setShowProfile] = useState(false);
   const [avatar, setAvatar] = useState(getRandomAvatar());

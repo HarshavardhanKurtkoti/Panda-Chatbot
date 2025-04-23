@@ -37,6 +37,10 @@ def token_required(f):
         return f(*args, **kwargs)
     return decorated
 
+@app.route('/')
+def index():
+    return '<h2>Panda Chatbot Backend is running!</h2>'
+
 @app.route('/register', methods=['POST'])
 def register():
     data = request.get_json()
@@ -111,4 +115,4 @@ def save_chat():
     return jsonify({'message': 'Chat saved'})
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True)
