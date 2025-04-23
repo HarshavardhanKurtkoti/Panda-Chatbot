@@ -1,0 +1,39 @@
+# Node.js
+node_modules/
+
+# Build output
+build/
+dist/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# VS Code
+.vscode/
+
+# Environment files
+.env
+.env.*
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Misc
+coverage/
+
+# React
+*.local
+
+# Others
+*.log
+
+venv
