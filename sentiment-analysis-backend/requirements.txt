@@ -1,0 +1,7 @@
+Flask
+flask-cors
+pymongo
+werkzeug
+pyjwt
+textblob
+python-dotenv
