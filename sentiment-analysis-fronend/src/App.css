@@ -1246,6 +1246,7 @@
     flex-direction: column;
     align-items: stretch;
     gap: 18px;
+    padding: 0 20px; /* Add horizontal padding for symmetry */
   }
   .login-form input {
     width: 100%;
@@ -1257,6 +1258,7 @@
     border: none;
     color: #fff;
     box-shadow: 0 1.5px 8px #22c55e11;
+    box-sizing: border-box; /* Ensure padding is included in width */
   }
   .login-form button[type="submit"] {
     width: 100%;
@@ -1270,6 +1272,7 @@
     color: #fff;
     box-shadow: 0 2px 12px #22c55e22;
     transition: background 0.2s;
+    box-sizing: border-box; /* Ensure padding is included in width */
   }
   .login-form button[type="submit"]:hover {
     background: #16a34a;
