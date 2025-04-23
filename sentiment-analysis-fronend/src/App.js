@@ -119,10 +119,21 @@ function App() {
           const data = await res.json();
           let chats = [];
           if (res.ok && data.chats) {
-            chats = data.chats.map(chat => ({
-              ...chat,
-              created: new Date(chat.created),
-            }));
+            chats = data.chats.map(chat => {
+              let createdDate;
+              try {
+                createdDate = new Date(chat.created);
+                if (isNaN(createdDate.getTime()) || createdDate.getFullYear() === 1970) {
+                  createdDate = new Date();
+                }
+              } catch {
+                createdDate = new Date();
+              }
+              return {
+                ...chat,
+                created: createdDate,
+              };
+            });
           }
           // If no chats, create a default session
           if (!chats.length) {
