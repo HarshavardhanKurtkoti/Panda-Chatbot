@@ -43,6 +43,27 @@ function App() {
   const [showProfile, setShowProfile] = useState(false);
   const [avatar, setAvatar] = useState(getRandomAvatar());
 
+  const [showServerCold, setShowServerCold] = useState(false);
+  const [showLoadingAnim, setShowLoadingAnim] = useState(false);
+
+  // Loading animation component
+  const LoadingSpinner = () => (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 32 }}>
+      <div style={{
+        border: '6px solid #23263a',
+        borderTop: '6px solid #22c55e',
+        borderRadius: '50%',
+        width: 56,
+        height: 56,
+        animation: 'spin 1s linear infinite',
+        marginBottom: 18
+      }} />
+      <style>{`@keyframes spin { 0% { transform: rotate(0deg);} 100% { transform: rotate(360deg);} }`}</style>
+      <div style={{ color: '#22c55e', fontWeight: 600, fontSize: 18 }}>Waking up Panda server...</div>
+      <div style={{ color: '#b0b3c6', fontSize: 14, marginTop: 6 }}>This may take 20-40 seconds on free tier.</div>
+    </div>
+  );
+
   useEffect(() => {
     const token = localStorage.getItem('token');
     const name = localStorage.getItem('name');
@@ -150,6 +171,9 @@ function App() {
   const handleRegister = async (e) => {
     e.preventDefault();
     setAuthError('');
+    setShowServerCold(true);
+    setShowLoadingAnim(true);
+    let coldTimeout = setTimeout(() => setShowServerCold(true), 2000);
     try {
       const res = await fetch('https://panda-chatbot.onrender.com/register', {
         method: 'POST',
@@ -160,12 +184,17 @@ function App() {
           password: loginForm.password,
         }),
       });
+      clearTimeout(coldTimeout);
+      setShowServerCold(false);
+      setShowLoadingAnim(false);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Registration failed');
       setAuthMode('login');
       setLoginForm({ name: '', email: '', password: '' });
       setAuthError('Registration successful! Please log in.');
     } catch (err) {
+      setShowServerCold(false);
+      setShowLoadingAnim(false);
       setAuthError(err.message);
     }
   };
@@ -177,6 +206,9 @@ function App() {
   const handleLogin = async (e) => {
     e.preventDefault();
     setAuthError('');
+    setShowServerCold(true);
+    setShowLoadingAnim(true);
+    let coldTimeout = setTimeout(() => setShowServerCold(true), 2000);
     try {
       const res = await fetch('https://panda-chatbot.onrender.com/login', {
         method: 'POST',
@@ -186,6 +218,9 @@ function App() {
           password: loginForm.password,
         }),
       });
+      clearTimeout(coldTimeout);
+      setShowServerCold(false);
+      setShowLoadingAnim(false);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Login failed');
       setUser({ name: data.name, email: data.email, token: data.token });
@@ -195,6 +230,8 @@ function App() {
       setLoginForm({ name: '', email: '', password: '' });
       setAuthError('');
     } catch (err) {
+      setShowServerCold(false);
+      setShowLoadingAnim(false);
       setAuthError(err.message);
     }
   };
@@ -485,50 +522,53 @@ function App() {
             >
               ×
             </button>
-            <form className="login-form" onSubmit={authMode === 'login' ? handleLogin : handleRegister}>
-              <h2>{authMode === 'login' ? 'Login' : 'Register'}</h2>
-              {authMode === 'register' && (
+            {showLoadingAnim && <LoadingSpinner />}
+            {!showLoadingAnim && (
+              <form className="login-form" onSubmit={authMode === 'login' ? handleLogin : handleRegister}>
+                <h2>{authMode === 'login' ? 'Login' : 'Register'}</h2>
+                {authMode === 'register' && (
+                  <input
+                    type="text"
+                    name="name"
+                    placeholder="Name"
+                    value={loginForm.name || ''}
+                    onChange={handleLoginChange}
+                    required
+                  />
+                )}
                 <input
-                  type="text"
-                  name="name"
-                  placeholder="Name"
-                  value={loginForm.name || ''}
+                  type="email"
+                  name="email"
+                  placeholder="Email"
+                  value={loginForm.email || ''}
                   onChange={handleLoginChange}
                   required
                 />
-              )}
-              <input
-                type="email"
-                name="email"
-                placeholder="Email"
-                value={loginForm.email || ''}
-                onChange={handleLoginChange}
-                required
-              />
-              <input
-                type="password"
-                name="password"
-                placeholder="Password"
-                value={loginForm.password || ''}
-                onChange={handleLoginChange}
-                required
-              />
-              {authError && (
-                <div style={{ color: authError.includes('successful') ? 'limegreen' : 'red', marginBottom: 8 }}>{authError}</div>
-              )}
-              <button type="submit">{authMode === 'login' ? 'Login' : 'Register'}</button>
-              <div style={{ marginTop: 12 }}>
-                {authMode === 'login' ? (
-                  <span>Don't have an account?{' '}
-                    <button type="button" className="modal-link" onClick={() => { setAuthMode('register'); setAuthError(''); }}>Register</button>
-                  </span>
-                ) : (
-                  <span>Already have an account?{' '}
-                    <button type="button" className="modal-link" onClick={() => { setAuthMode('login'); setAuthError(''); }}>Login</button>
-                  </span>
+                <input
+                  type="password"
+                  name="password"
+                  placeholder="Password"
+                  value={loginForm.password || ''}
+                  onChange={handleLoginChange}
+                  required
+                />
+                {authError && (
+                  <div style={{ color: authError.includes('successful') ? 'limegreen' : 'red', marginBottom: 8 }}>{authError}</div>
                 )}
-              </div>
-            </form>
+                <button type="submit">{authMode === 'login' ? 'Login' : 'Register'}</button>
+                <div style={{ marginTop: 12 }}>
+                  {authMode === 'login' ? (
+                    <span>Don't have an account?{' '}
+                      <button type="button" className="modal-link" onClick={() => { setAuthMode('register'); setAuthError(''); }}>Register</button>
+                    </span>
+                  ) : (
+                    <span>Already have an account?{' '}
+                      <button type="button" className="modal-link" onClick={() => { setAuthMode('login'); setAuthError(''); }}>Login</button>
+                    </span>
+                  )}
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}
