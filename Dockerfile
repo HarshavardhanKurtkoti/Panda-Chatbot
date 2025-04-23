@@ -11,8 +11,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the rest of the backend code
 COPY sentiment-analysis-backend/. .
 
-# Copy .env file if present
-COPY sentiment-analysis-backend/.env .
+# Commented out since Render injects environment variables automatically
+# COPY sentiment-analysis-backend/.env .
 
 # Expose port (change if your app uses a different port)
 EXPOSE 5000
