@@ -46,6 +46,8 @@ function App() {
   const [showServerCold, setShowServerCold] = useState(false);
   const [showLoadingAnim, setShowLoadingAnim] = useState(false);
 
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
   // Loading animation component
   const LoadingSpinner = () => (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 32 }}>
@@ -357,62 +359,103 @@ function App() {
   // Track if the user has started a conversation in the current session
   const hasStarted = user && chat.length > 0;
 
+  useEffect(() => {
+    if (!sidebarCollapsed && window.innerWidth <= 900) {
+      const handleClick = (e) => {
+        const sidebar = document.querySelector('.gpt-sidebar');
+        if (sidebar && !sidebar.contains(e.target)) {
+          setSidebarCollapsed(true);
+        }
+      };
+      document.addEventListener('mousedown', handleClick);
+      document.addEventListener('touchstart', handleClick);
+      return () => {
+        document.removeEventListener('mousedown', handleClick);
+        document.removeEventListener('touchstart', handleClick);
+      };
+    }
+  }, [sidebarCollapsed]);
+
   return (
     <div className="gpt-app-bg">
       <div className="gpt-app-container">
+        {/* Sidebar Overlay for Mobile */}
+        {(!sidebarCollapsed && window.innerWidth <= 900) && (
+          <div
+            className="gpt-sidebar-backdrop"
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              width: '100vw',
+              height: '100vh',
+              background: 'rgba(0,0,0,0.35)',
+              zIndex: 1000,
+            }}
+            onClick={() => setSidebarCollapsed(true)}
+          />
+        )}
         {/* Sidebar */}
-        <aside className="gpt-sidebar">
+        <aside
+          className={`gpt-sidebar${sidebarCollapsed ? ' gpt-sidebar-collapsed' : ''}`}
+          style={{ width: sidebarCollapsed ? 60 : 340, minWidth: sidebarCollapsed ? 60 : 340, maxWidth: sidebarCollapsed ? 60 : 340, transition: 'width 0.25s cubic-bezier(.4,2,.6,1), min-width 0.25s cubic-bezier(.4,2,.6,1), max-width 0.25s cubic-bezier(.4,2,.6,1)' }}
+        >
           <div className="gpt-sidebar-header">
-            <span
-              className="gpt-logo"
-              style={{ fontSize: 32 }}
-            >
-              🐼
-            </span>
-            <span className="gpt-sidebar-title">Sentiment Analyses</span>
-            <button
-              className="gpt-sidebar-settings"
-              title="Account/Settings"
-              onClick={() => user ? setShowProfile(true) : setShowAuthModal(true)}
-              style={{ background: 'none', border: 'none', padding: 0, display: 'flex', alignItems: 'center' }}
-            >
-              {user ? (
-                <span style={{ fontSize: 32 }}>{avatar}</span>
-              ) : (
-                <UserIcon />
-              )}
-            </button>
-          </div>
-          <button className="gpt-new-chat-btn" onClick={handleNewSession}>New Analysis +</button>
-          <div className="gpt-sidebar-section">My Analyses</div>
-          <ul className="gpt-sidebar-chats">
-            {sessions.map((s) => (
-              <li
-                key={s.id}
-                className={`gpt-sidebar-chat${activeSession === s.id ? ' gpt-sidebar-chat-active' : ''}`}
-                onClick={() => handleSelectSession(s.id)}
-                style={{ position: 'relative' }}
+            <span className="gpt-logo" style={{ fontSize: 32 }}>🐼</span>
+            {!sidebarCollapsed && <span className="gpt-sidebar-title">Sentiment Analyses</span>}
+            {!sidebarCollapsed && (
+              <button
+                className="gpt-sidebar-settings"
+                title="Account/Settings"
+                onClick={() => user ? setShowProfile(true) : setShowAuthModal(true)}
+                style={{ background: 'none', border: 'none', padding: 0, display: 'flex', alignItems: 'center' }}
               >
-                <div className="gpt-chat-title">{s.title}</div>
-                <div className="gpt-chat-desc">{s.created.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
-                {sessions.length > 1 && (
-                  <button
-                    className="chat-three-dot"
-                    onClick={e => { e.stopPropagation(); setShowDeleteDialog({ open: true, sessionId: s.id }); }}
-                    title="More options"
-                    style={{ position: 'absolute', right: 8, top: 12, background: 'none', border: 'none', color: '#b0b3c6', fontSize: 20, cursor: 'pointer', padding: 0 }}
-                  >
-                    &#8942;
-                  </button>
+                {user ? (
+                  <span style={{ fontSize: 32 }}>{avatar}</span>
+                ) : (
+                  <UserIcon />
                 )}
-              </li>
-            ))}
-          </ul>
+              </button>
+            )}
+          </div>
+          {!sidebarCollapsed && <button className="gpt-new-chat-btn" onClick={handleNewSession}>New Analysis +</button>}
+          {!sidebarCollapsed && <div className="gpt-sidebar-section">My Analyses</div>}
+          {!sidebarCollapsed && (
+            <ul className="gpt-sidebar-chats">
+              {sessions.map((s) => (
+                <li
+                  key={s.id}
+                  className={`gpt-sidebar-chat${activeSession === s.id ? ' gpt-sidebar-chat-active' : ''}`}
+                  onClick={() => handleSelectSession(s.id)}
+                  style={{ position: 'relative' }}
+                >
+                  <div className="gpt-chat-title">{s.title}</div>
+                  <div className="gpt-chat-desc">{s.created.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                  {sessions.length > 1 && (
+                    <button
+                      className="chat-three-dot"
+                      onClick={e => { e.stopPropagation(); setShowDeleteDialog({ open: true, sessionId: s.id }); }}
+                      title="More options"
+                      style={{ position: 'absolute', right: 8, top: 12, background: 'none', border: 'none', color: '#b0b3c6', fontSize: 20, cursor: 'pointer', padding: 0 }}
+                    >
+                      &#8942;
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
         </aside>
         {/* Main panel */}
         <main className="gpt-main-panel">
           <div className="gpt-main-header">
-            <span className="gpt-main-back">&lt;</span>
+            <span
+              className="gpt-main-back"
+              style={{ cursor: 'pointer', userSelect: 'none' }}
+              onClick={() => setSidebarCollapsed(v => !v)}
+            >
+              {sidebarCollapsed ? '>' : '<'}
+            </span>
             <span className="gpt-main-title">Sentiment Analysis Chat</span>
             <span className="gpt-main-model">Panda AI</span>
           </div>
