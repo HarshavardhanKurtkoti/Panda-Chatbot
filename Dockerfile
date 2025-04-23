@@ -5,14 +5,14 @@ FROM python:3.13-slim
 WORKDIR /app
 
 # Copy requirements and install dependencies
-COPY requirements.txt ./
+COPY sentiment-analysis-backend/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the rest of the backend code
-COPY . .
+COPY sentiment-analysis-backend/. .
 
-# Copy .env file
-COPY .env .
+# Copy .env file if present
+COPY sentiment-analysis-backend/.env .
 
 # Expose port (change if your app uses a different port)
 EXPOSE 5000
