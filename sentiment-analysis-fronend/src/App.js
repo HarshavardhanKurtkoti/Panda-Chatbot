@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './App.css';
 
+// Backend base URL
+const BACKEND_URL = "http://127.0.0.1:5000";
+
 // Replace the avatar icon with a user icon SVG for login/signup
 const UserIcon = () => (
   <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -43,7 +46,6 @@ function App() {
   const [showProfile, setShowProfile] = useState(false);
   const [avatar, setAvatar] = useState(getRandomAvatar());
 
-  const [showServerCold, setShowServerCold] = useState(false);
   const [showLoadingAnim, setShowLoadingAnim] = useState(false);
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -115,7 +117,7 @@ function App() {
     const fetchChats = async () => {
       if (user && user.token) {
         try {
-          const res = await fetch('https://panda-chatbot.onrender.com/chats', {
+          const res = await fetch(`${BACKEND_URL}/chats`, {
             headers: { Authorization: user.token },
           });
           const data = await res.json();
@@ -161,7 +163,7 @@ function App() {
   useEffect(() => {
     if (!user || !user.token) return;
     sessions.forEach(session => {
-      fetch('https://panda-chatbot.onrender.com/chats', {
+      fetch(`${BACKEND_URL}/chats`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -184,11 +186,9 @@ function App() {
   const handleRegister = async (e) => {
     e.preventDefault();
     setAuthError('');
-    setShowServerCold(true);
     setShowLoadingAnim(true);
-    let coldTimeout = setTimeout(() => setShowServerCold(true), 2000);
     try {
-      const res = await fetch('https://panda-chatbot.onrender.com/register', {
+      const res = await fetch(`${BACKEND_URL}/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -197,8 +197,6 @@ function App() {
           password: loginForm.password,
         }),
       });
-      clearTimeout(coldTimeout);
-      setShowServerCold(false);
       setShowLoadingAnim(false);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Registration failed');
@@ -206,7 +204,6 @@ function App() {
       setLoginForm({ name: '', email: '', password: '' });
       setAuthError('Registration successful! Please log in.');
     } catch (err) {
-      setShowServerCold(false);
       setShowLoadingAnim(false);
       setAuthError(err.message);
     }
@@ -219,11 +216,9 @@ function App() {
   const handleLogin = async (e) => {
     e.preventDefault();
     setAuthError('');
-    setShowServerCold(true);
     setShowLoadingAnim(true);
-    let coldTimeout = setTimeout(() => setShowServerCold(true), 2000);
     try {
-      const res = await fetch('https://panda-chatbot.onrender.com/login', {
+      const res = await fetch(`${BACKEND_URL}/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -231,8 +226,6 @@ function App() {
           password: loginForm.password,
         }),
       });
-      clearTimeout(coldTimeout);
-      setShowServerCold(false);
       setShowLoadingAnim(false);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Login failed');
@@ -243,7 +236,6 @@ function App() {
       setLoginForm({ name: '', email: '', password: '' });
       setAuthError('');
     } catch (err) {
-      setShowServerCold(false);
       setShowLoadingAnim(false);
       setAuthError(err.message);
     }
@@ -251,7 +243,7 @@ function App() {
 
   const handleLogout = async () => {
     if (user && user.token) {
-      await fetch('https://panda-chatbot.onrender.com/logout', {
+      await fetch(`${BACKEND_URL}/logout`, {
         method: 'POST',
         headers: { Authorization: user.token },
       });
@@ -300,7 +292,7 @@ function App() {
       return s;
     }));
     try {
-      const res = await fetch('https://panda-chatbot.onrender.com/analyze-sentiment', {
+      const res = await fetch(`${BACKEND_URL}/analyze-sentiment`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -338,7 +330,7 @@ function App() {
     setSessions(sessions => sessions.filter(s => s.id !== id));
     // Remove from backend
     if (user && user.token) {
-      fetch('https://panda-chatbot.onrender.com/chats', {
+      fetch(`${BACKEND_URL}/chats`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -375,6 +367,8 @@ function App() {
       };
     }
   }, [sidebarCollapsed]);
+
+  const [showDefaultHome, setShowDefaultHome] = useState(true); // Show default home page on first load
 
   return (
     <div className="gpt-app-bg">
@@ -459,109 +453,142 @@ function App() {
             <span className="gpt-main-title">Sentiment Analysis Chat</span>
             <span className="gpt-main-model">Panda AI</span>
           </div>
-          {hasStarted ? (
-            <div className="whatsapp-chat-log">
-              <div ref={chatWindowRef} className="whatsapp-chat-window">
-                {chat.map((msg, idx) => (
-                  <div
-                    key={idx}
-                    className={
-                      msg.sender === 'user'
-                        ? 'whatsapp-msg whatsapp-msg-user'
-                        : 'whatsapp-msg whatsapp-msg-bot'
-                    }
-                  >
-                    <div className="whatsapp-msg-bubble">
-                      {msg.text}
-                      <div className="whatsapp-msg-timestamp">{msg.time}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <form className="gpt-prompt-form" onSubmit={handleSend}>
-                <input
-                  className="gpt-prompt-input"
-                  placeholder={user ? "Type your message..." : "Login to start chatting..."}
-                  value={message}
-                  onChange={e => setMessage(e.target.value)}
-                  disabled={!user || loading}
-                />
-                <button className="gpt-prompt-send" type="submit" disabled={!user || loading || !message.trim()}>
-                  →
-                </button>
-              </form>
+          {/* Default Home Page */}
+          {showDefaultHome ? (
+            <div style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh', width: '100%'
+            }}>
+              <div style={{ fontSize: 64, marginBottom: 16 }}>🐼</div>
+              <h1 style={{ fontSize: 36, marginBottom: 12, color: '#22c55e' }}>Welcome to Panda Sentiment Analysis</h1>
+              <p style={{ fontSize: 18, color: '#b0b3c6', maxWidth: 480, textAlign: 'center', marginBottom: 32 }}>
+                Instantly analyze the sentiment of your messages. Register or log in to chat with Panda and get real-time feedback on your text's mood. Start your positive journey today!
+              </p>
+              <button
+                style={{
+                  background: '#22c55e',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 12,
+                  padding: '16px 40px',
+                  fontSize: 20,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 8px #22c55e33',
+                  marginBottom: 12
+                }}
+                onClick={() => setShowDefaultHome(false)}
+              >
+                Get Started
+              </button>
             </div>
           ) : (
-            <div className="gpt-welcome-panel">
-              <div className="gpt-welcome-logo">🐼</div>
-              <h2>Welcome to Panda Sentiment Chat!</h2>
-              <div className="gpt-welcome-desc">
-                Analyze the sentiment of your messages instantly. Register or log in to start chatting with Panda and get real-time feedback on your text's mood.
-              </div>
-              <div className="gpt-feature-cards">
-                <div className="gpt-feature-card">Real-time Sentiment Analysis</div>
-                <div className="gpt-feature-card">User Authentication</div>
-                <div className="gpt-feature-card">Secure MongoDB Storage</div>
-              </div>
-              <div className="gpt-prompt-tabs">
-                <span className="gpt-prompt-tab gpt-prompt-tab-active">All</span>
-                <span className="gpt-prompt-tab">Positive</span>
-                <span className="gpt-prompt-tab">Negative</span>
-                <span className="gpt-prompt-tab">Neutral</span>
-              </div>
-              <form className="gpt-prompt-form" onSubmit={handleSend}>
-                <input
-                  className="gpt-prompt-input"
-                  placeholder={user ? "Type your message for sentiment analysis..." : "Login to start chatting..."}
-                  value={message}
-                  onChange={e => setMessage(e.target.value)}
-                  disabled={!user || loading}
-                />
-                <button className="gpt-prompt-send" type="submit" disabled={!user || loading || !message.trim()}>
-                  →
-                </button>
-              </form>
-              <div ref={chatWindowRef} style={{width: '100%', maxHeight: 320, minHeight: 120, overflowY: 'auto', marginTop: 24, background: 'rgba(24,26,27,0.92)', borderRadius: 12, padding: 12}}>
-                {user && chat.length > 0 && chat.map((msg, idx) => (
-                  <div key={idx} className={msg.sender === 'user' ? 'user-msg' : 'bot-msg'} style={{marginBottom: 8}}>
-                    <div className="msg-avatar">
-                      {msg.sender === 'user' ? (user ? user.name[0]?.toUpperCase() : 'U') : '🐼'}
-                    </div>
-                    <div className="msg-bubble">
-                      <b>{msg.sender === 'user' ? (user ? user.name : 'You') : 'Panda'}:</b> {msg.text}
-                      <div className="msg-timestamp">{msg.time}</div>
-                    </div>
+            <>
+              {/* Only show the chat and welcome panel logic, no activeTab checks */}
+              {hasStarted ? (
+                <div className="whatsapp-chat-log">
+                  <div ref={chatWindowRef} className="whatsapp-chat-window">
+                    {chat.map((msg, idx) => (
+                      <div
+                        key={idx}
+                        className={
+                          msg.sender === 'user'
+                            ? 'whatsapp-msg whatsapp-msg-user'
+                            : 'whatsapp-msg whatsapp-msg-bot'
+                        }
+                      >
+                        <div className="whatsapp-msg-bubble">
+                          {msg.text}
+                          <div className="whatsapp-msg-timestamp">{msg.time}</div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
-                {!user && !showAuthModal && (
-                  <div style={{ width: '100%', display: 'flex', justifyContent: 'center', marginTop: 24 }}>
-                    <button
-                      style={{
-                        background: '#232b3a',
-                        color: '#fff',
-                        fontWeight: 700,
-                        fontSize: 22,
-                        border: 'none',
-                        borderRadius: 16,
-                        padding: '24px 0',
-                        width: '100%',
-                        maxWidth: 520,
-                        cursor: 'pointer',
-                        boxShadow: '0 2px 8px #0002'
-                      }}
-                      onClick={() => setShowAuthModal(true)}
-                    >
-                      Sign in or Sign up to chat
+                  <form className="gpt-prompt-form" onSubmit={handleSend}>
+                    <input
+                      className="gpt-prompt-input"
+                      placeholder={user ? "Type your message..." : "Login to start chatting..."}
+                      value={message}
+                      onChange={e => setMessage(e.target.value)}
+                      disabled={!user || loading}
+                    />
+                    <button className="gpt-prompt-send" type="submit" disabled={!user || loading || !message.trim()}>
+                      →
                     </button>
+                  </form>
+                </div>
+              ) : (
+                <div className="gpt-welcome-panel">
+                  <div className="gpt-welcome-logo">🐼</div>
+                  <h2>Welcome to Panda Sentiment Chat!</h2>
+                  <div className="gpt-welcome-desc">
+                    Analyze the sentiment of your messages instantly. Register or log in to start chatting with Panda and get real-time feedback on your text's mood.
                   </div>
-                )}
-                {user && !hasStarted && (
-                  <div style={{ width: '100%', textAlign: 'center', fontWeight: 700, fontSize: 22, color: '#22c55e', marginTop: 24, letterSpacing: 0.5 }}>
-                    Start your positive journey! 🚀
+                  <div className="gpt-feature-cards">
+                    <div className="gpt-feature-card">Real-time Sentiment Analysis</div>
+                    <div className="gpt-feature-card">User Authentication</div>
+                    <div className="gpt-feature-card">Secure MongoDB Storage</div>
                   </div>
-                )}
-              </div>
-            </div>
+                  <div className="gpt-prompt-tabs">
+                    <span className="gpt-prompt-tab gpt-prompt-tab-active">All</span>
+                    <span className="gpt-prompt-tab">Positive</span>
+                    <span className="gpt-prompt-tab">Negative</span>
+                    <span className="gpt-prompt-tab">Neutral</span>
+                  </div>
+                  <form className="gpt-prompt-form" onSubmit={handleSend}>
+                    <input
+                      className="gpt-prompt-input"
+                      placeholder={user ? "Type your message for sentiment analysis..." : "Login to start chatting..."}
+                      value={message}
+                      onChange={e => setMessage(e.target.value)}
+                      disabled={!user || loading}
+                    />
+                    <button className="gpt-prompt-send" type="submit" disabled={!user || loading || !message.trim()}>
+                      →
+                    </button>
+                  </form>
+                  <div ref={chatWindowRef} style={{width: '100%', maxHeight: 320, minHeight: 120, overflowY: 'auto', marginTop: 24, background: 'rgba(24,26,27,0.92)', borderRadius: 12, padding: 12}}>
+                    {user && chat.length > 0 && chat.map((msg, idx) => (
+                      <div key={idx} className={msg.sender === 'user' ? 'user-msg' : 'bot-msg'} style={{marginBottom: 8}}>
+                        <div className="msg-avatar">
+                          {msg.sender === 'user' ? (user ? user.name[0]?.toUpperCase() : 'U') : '🐼'}
+                        </div>
+                        <div className="msg-bubble">
+                          <b>{msg.sender === 'user' ? (user ? user.name : 'You') : 'Panda'}:</b> {msg.text}
+                          <div className="msg-timestamp">{msg.time}</div>
+                        </div>
+                      </div>
+                    ))}
+                    {!user && !showAuthModal && (
+                      <div style={{ width: '100%', display: 'flex', justifyContent: 'center', marginTop: 24 }}>
+                        <button
+                          style={{
+                            background: '#232b3a',
+                            color: '#fff',
+                            fontWeight: 700,
+                            fontSize: 22,
+                            border: 'none',
+                            borderRadius: 16,
+                            padding: '24px 0',
+                            width: '100%',
+                            maxWidth: 520,
+                            cursor: 'pointer',
+                            boxShadow: '0 2px 8px #0002'
+                          }}
+                          onClick={() => setShowAuthModal(true)}
+                        >
+                          Sign in or Sign up to chat
+                        </button>
+                      </div>
+                    )}
+                    {user && !hasStarted && (
+                      <div style={{ width: '100%', textAlign: 'center', fontWeight: 700, fontSize: 22, color: '#22c55e', marginTop: 24, letterSpacing: 0.5 }}>
+                        Start your positive journey! 🚀
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </main>
       </div>
