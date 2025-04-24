@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import './App.css';
 
 // Backend base URL
-const BACKEND_URL = "http://127.0.0.1:5000";
+const BACKEND_URL = "https://panda-chatbot.onrender.com";
 
 // Replace the avatar icon with a user icon SVG for login/signup
 const UserIcon = () => (
