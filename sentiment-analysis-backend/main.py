@@ -10,7 +10,11 @@ import os
 from dotenv import load_dotenv
 
 app = Flask(__name__)
-CORS(app, origins=["https://panda-chatbot-lxpt.vercel.app"])
+CORS(app, origins=[
+    "https://panda-chatbot-lxpt.vercel.app",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000"
+])
 load_dotenv()
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your_secret_key_here')  # Use env var or fallback
 
@@ -113,6 +117,17 @@ def save_chat():
     }
     chats_collection.replace_one({'id': chat_id, 'user_email': user_email}, chat_doc, upsert=True)
     return jsonify({'message': 'Chat saved'})
+
+@app.route('/chats/<chat_id>', methods=['DELETE'])
+@token_required
+def delete_chat(chat_id):
+    user_email = request.user['email']
+    # Match id as string or int for robustness
+    result = chats_collection.delete_one({'id': {'$in': [chat_id, int(chat_id)]}, 'user_email': user_email})
+    if result.deleted_count == 1:
+        return jsonify({'message': 'Chat deleted'})
+    else:
+        return jsonify({'error': 'Chat not found'}), 404
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

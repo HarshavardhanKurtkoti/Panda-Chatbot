@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './App.css';
 
-// Backend base URL
-const BACKEND_URL = "https://panda-chatbot.onrender.com";
+// Backend base URL (switches between env and localhost)
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "http://127.0.0.1:5000";
 
 // Replace the avatar icon with a user icon SVG for login/signup
 const UserIcon = () => (
@@ -325,27 +325,55 @@ function App() {
   };
 
   // Delete a session (only if more than one session exists)
-  const handleDeleteSession = (id) => {
+  const handleDeleteSession = async (id) => {
     if (sessions.length <= 1) return; // Prevent deleting the last session
-    setSessions(sessions => sessions.filter(s => s.id !== id));
-    // Remove from backend
+    setShowDeleteDialog({ open: false, sessionId: null }); // Close popup immediately
     if (user && user.token) {
-      fetch(`${BACKEND_URL}/chats`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: user.token,
-        },
-        body: JSON.stringify({ id }),
-      });
+      try {
+        await fetch(`${BACKEND_URL}/chats/${id}`, {
+          method: 'DELETE',
+          headers: {
+            Authorization: user.token,
+          },
+        });
+        // Fetch updated sessions from backend
+        const res = await fetch(`${BACKEND_URL}/chats`, {
+          headers: { Authorization: user.token },
+        });
+        const data = await res.json();
+        let chats = [];
+        if (res.ok && data.chats) {
+          chats = data.chats.map(chat => {
+            let createdDate;
+            try {
+              createdDate = new Date(chat.created);
+              if (isNaN(createdDate.getTime()) || createdDate.getFullYear() === 1970) {
+                createdDate = new Date();
+              }
+            } catch {
+              createdDate = new Date();
+            }
+            return {
+              ...chat,
+              created: createdDate,
+            };
+          });
+        }
+        if (!chats.length) {
+          chats = [{
+            id: Date.now(),
+            title: 'Default Analysis',
+            created: new Date(),
+            messages: []
+          }];
+        }
+        setSessions(chats);
+        setActiveSession(chats[0].id);
+        setChat(chats[0].messages);
+      } catch (err) {
+        // Optionally handle error
+      }
     }
-    // If the deleted session is active, switch to the first available session
-    if (activeSession === id) {
-      const next = sessions.find(s => s.id !== id);
-      setActiveSession(next ? next.id : null);
-      setChat(next ? next.messages : []);
-    }
-    setShowDeleteDialog({ open: false, sessionId: null });
   };
 
   // Track if the user has started a conversation in the current session
