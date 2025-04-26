@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import './App.css';
 
 // Backend base URL (switches between env and localhost)
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "http://127.0.0.1:5000";
@@ -30,25 +29,26 @@ function App() {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const chatWindowRef = useRef(null);
 
-  const [sessions, setSessions] = useState([
-    { id: 1, title: 'Welcome Chat', created: new Date(), messages: [] }
-  ]);
-  const [activeSession, setActiveSession] = useState(1);
+  // Use a unique initial session and keep activeSession in sync
+  const createInitialSession = () => ({
+    id: Date.now(),
+    title: 'Welcome Chat',
+    created: new Date(),
+    messages: []
+  });
+  const [sessions, setSessions] = useState([createInitialSession()]);
+  const [activeSession, setActiveSession] = useState(sessions[0].id);
 
   const [showDeleteDialog, setShowDeleteDialog] = useState({ open: false, sessionId: null });
-
-  // const chats = [
-  //   { title: 'Plan a 3-day trip', desc: 'A 3-day trip to see the northern lights in Norway...' },
-  //   { title: 'Ideas for a customer loyalty program', desc: 'Here are seven ideas for a customer loyalty...' },
-  //   { title: 'Help me pick', desc: 'Here are some gift ideas for your fishing-loving...' },
-  // ];
 
   const [showProfile, setShowProfile] = useState(false);
   const [avatar, setAvatar] = useState(getRandomAvatar());
 
   const [showLoadingAnim, setShowLoadingAnim] = useState(false);
 
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  // Sidebar collapsed by default on mobile
+  const getInitialSidebarCollapsed = () => window.innerWidth <= 900;
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(getInitialSidebarCollapsed());
 
   // Loading animation component
   const LoadingSpinner = () => (
@@ -100,14 +100,9 @@ function App() {
   // Ensure at least one session always exists
   useEffect(() => {
     if (sessions.length === 0) {
-      const defaultSession = {
-        id: 1,
-        title: 'Default Analysis',
-        created: new Date(),
-        messages: []
-      };
+      const defaultSession = createInitialSession();
       setSessions([defaultSession]);
-      setActiveSession(1);
+      setActiveSession(defaultSession.id);
       setChat([]);
     }
   }, [sessions]);
@@ -141,12 +136,7 @@ function App() {
           }
           // If no chats, create a default session
           if (!chats.length) {
-            chats = [{
-              id: Date.now(),
-              title: 'Default Analysis',
-              created: new Date(),
-              messages: []
-            }];
+            chats = [createInitialSession()];
           }
           setSessions(chats);
           setActiveSession(chats[0].id);
@@ -241,23 +231,6 @@ function App() {
     }
   };
 
-  const handleLogout = async () => {
-    if (user && user.token) {
-      await fetch(`${BACKEND_URL}/logout`, {
-        method: 'POST',
-        headers: { Authorization: user.token },
-      });
-    }
-    setUser(null);
-    setLoginForm({ name: '', email: '', password: '' });
-    setChat([]);
-    setSessions([{ id: 1, title: 'Welcome Chat', created: new Date(), messages: [] }]); // Clear all sessions
-    setActiveSession(1);
-    localStorage.removeItem('token');
-    localStorage.removeItem('name');
-    localStorage.removeItem('email');
-  };
-
   // When creating a new session, clear chat window
   const handleNewSession = () => {
     const newId = Date.now();
@@ -326,8 +299,8 @@ function App() {
 
   // Delete a session (only if more than one session exists)
   const handleDeleteSession = async (id) => {
-    if (sessions.length <= 1) return; // Prevent deleting the last session
-    setShowDeleteDialog({ open: false, sessionId: null }); // Close popup immediately
+    if (sessions.length <= 1) return;
+    setShowDeleteDialog({ open: false, sessionId: null });
     if (user && user.token) {
       try {
         await fetch(`${BACKEND_URL}/chats/${id}`, {
@@ -336,7 +309,6 @@ function App() {
             Authorization: user.token,
           },
         });
-        // Fetch updated sessions from backend
         const res = await fetch(`${BACKEND_URL}/chats`, {
           headers: { Authorization: user.token },
         });
@@ -360,16 +332,15 @@ function App() {
           });
         }
         if (!chats.length) {
-          chats = [{
-            id: Date.now(),
-            title: 'Default Analysis',
-            created: new Date(),
-            messages: []
-          }];
+          const defaultSession = createInitialSession();
+          chats = [defaultSession];
+          setActiveSession(defaultSession.id);
+          setChat([]);
+        } else {
+          setActiveSession(chats[0].id);
+          setChat(chats[0].messages);
         }
         setSessions(chats);
-        setActiveSession(chats[0].id);
-        setChat(chats[0].messages);
       } catch (err) {
         // Optionally handle error
       }
@@ -397,68 +368,110 @@ function App() {
   }, [sidebarCollapsed]);
 
   const [showDefaultHome, setShowDefaultHome] = useState(true); // Show default home page on first load
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 900);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 900);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Add the missing handleLogout function at the top of App()
+  const handleLogout = async () => {
+    if (user && user.token) {
+      await fetch(`${BACKEND_URL}/logout`, {
+        method: 'POST',
+        headers: { Authorization: user.token },
+      });
+    }
+    setUser(null);
+    setLoginForm({ name: '', email: '', password: '' });
+    setChat([]);
+    const defaultSession = createInitialSession();
+    setSessions([defaultSession]);
+    setActiveSession(defaultSession.id);
+    localStorage.removeItem('token');
+    localStorage.removeItem('name');
+    localStorage.removeItem('email');
+  };
 
   return (
-    <div className="gpt-app-bg">
-      <div className="gpt-app-container">
+    <div className="min-h-screen w-screen bg-gradient-to-br from-[#181c2b] via-[#23263a] to-[#0a0f0c] fixed top-0 left-0 right-0 bottom-0 z-0 font-sans">
+      <div className="h-screen w-screen relative z-10">
         {/* Sidebar Overlay for Mobile */}
         {(!sidebarCollapsed && window.innerWidth <= 900) && (
           <div
-            className="gpt-sidebar-backdrop"
-            style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              width: '100vw',
-              height: '100vh',
-              background: 'rgba(0,0,0,0.35)',
-              zIndex: 1000,
-            }}
+            className="fixed top-0 left-0 w-full h-full bg-black bg-opacity-40 z-[1000]"
             onClick={() => setSidebarCollapsed(true)}
           />
         )}
         {/* Sidebar */}
         <aside
-          className={`gpt-sidebar${sidebarCollapsed ? ' gpt-sidebar-collapsed' : ''}`}
-          style={{ width: sidebarCollapsed ? 60 : 340, minWidth: sidebarCollapsed ? 60 : 340, maxWidth: sidebarCollapsed ? 60 : 340, transition: 'width 0.25s cubic-bezier(.4,2,.6,1), min-width 0.25s cubic-bezier(.4,2,.6,1), max-width 0.25s cubic-bezier(.4,2,.6,1)' }}
+          className={
+            [
+              'bg-[#20232a] flex flex-col border-r border-[#23263a] shadow-2xl text-white min-w-[70px] max-w-[380px] w-[380px] rounded-tr-3xl rounded-br-3xl',
+              'transition-transform duration-700 ease-[cubic-bezier(.4,2,.6,1)]',
+              sidebarCollapsed ? '-translate-x-full pointer-events-none' : 'translate-x-0 pointer-events-auto',
+              'fixed left-0 top-0 h-screen z-[1002]'
+            ].join(' ')
+          }
+          style={{
+            width: sidebarCollapsed ? 70 : 360,
+            minWidth: sidebarCollapsed ? 70 : 360,
+            maxWidth: sidebarCollapsed ? 70 : 380,
+            position: 'fixed'
+          }}
         >
-          <div className="gpt-sidebar-header">
-            <span className="gpt-logo" style={{ fontSize: 32 }}>🐼</span>
-            {!sidebarCollapsed && <span className="gpt-sidebar-title">Sentiment Analyses</span>}
+          <div className={`w-full flex items-center gap-3 font-semibold pb-4 px-6 pt-8 ${isMobile ? 'pr-16' : ''} text-white relative`}>
             {!sidebarCollapsed && (
               <button
-                className="gpt-sidebar-settings"
+                className="bg-gradient-to-tr from-green-400 to-blue-500 rounded-full w-10 h-10 flex items-center justify-center text-2xl shadow-lg border-4 border-[#23263a] mr-2 hover:scale-105 transition-transform"
                 title="Account/Settings"
                 onClick={() => user ? setShowProfile(true) : setShowAuthModal(true)}
-                style={{ background: 'none', border: 'none', padding: 0, display: 'flex', alignItems: 'center' }}
               >
                 {user ? (
-                  <span style={{ fontSize: 32 }}>{avatar}</span>
+                  <span>{avatar}</span>
                 ) : (
                   <UserIcon />
                 )}
               </button>
             )}
+            <span className="text-2xl mr-2">🐼</span>
+            {!sidebarCollapsed && (
+              <span className="font-bold text-lg whitespace-nowrap truncate flex-1">Sentiment Analysis Chat</span>
+            )}
+            {/* Sidebar close button for all screen sizes, now inline */}
+            {!sidebarCollapsed && (
+              <button
+                className="ml-2 bg-red-500 text-white rounded-xl text-2xl font-bold shadow-lg w-10 h-10 flex items-center justify-center transition-transform duration-200 hover:bg-red-600 hover:scale-110 z-[1100] border-none"
+                aria-label="Close sidebar"
+                onClick={() => setSidebarCollapsed(true)}
+                style={{ minWidth: 40, minHeight: 40 }}
+              >
+                ×
+              </button>
+            )}
           </div>
-          {!sidebarCollapsed && <button className="gpt-new-chat-btn" onClick={handleNewSession}>New Analysis +</button>}
-          {!sidebarCollapsed && <div className="gpt-sidebar-section">My Analyses</div>}
+          {!sidebarCollapsed && <button className="w-[85%] mx-auto mb-4 py-2 rounded-xl bg-gradient-to-r from-green-400 to-blue-500 text-white font-bold shadow hover:from-green-500 hover:to-blue-600 transition-colors" onClick={handleNewSession}>New Analysis +</button>}
+          {!sidebarCollapsed && <div className="text-gray-400 font-semibold text-xs uppercase tracking-widest px-7 mb-2 mt-2">My Analyses</div>}
           {!sidebarCollapsed && (
-            <ul className="gpt-sidebar-chats">
+            <ul className="flex-1 overflow-y-auto px-2">
               {sessions.map((s) => (
                 <li
                   key={s.id}
-                  className={`gpt-sidebar-chat${activeSession === s.id ? ' gpt-sidebar-chat-active' : ''}`}
+                  className={`group relative flex flex-col gap-1 px-5 py-3 mb-2 rounded-xl cursor-pointer transition-colors ${activeSession === s.id ? 'bg-gradient-to-r from-green-500/80 to-blue-500/80 text-white shadow-lg' : 'hover:bg-[#23263a] text-gray-200'}`}
                   onClick={() => handleSelectSession(s.id)}
-                  style={{ position: 'relative' }}
                 >
-                  <div className="gpt-chat-title">{s.title}</div>
-                  <div className="gpt-chat-desc">{s.created.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                  <div className="font-bold text-base truncate flex items-center gap-2">
+                    <span className="inline-block w-2 h-2 rounded-full bg-green-400 group-hover:bg-blue-400 transition-colors"></span>
+                    {s.title}
+                  </div>
+                  <div className="text-xs text-gray-400 group-hover:text-gray-200 transition-colors">{s.created.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
                   {sessions.length > 1 && (
                     <button
-                      className="chat-three-dot"
+                      className="absolute right-3 top-3 text-gray-400 hover:text-red-400 bg-transparent border-none text-lg font-bold"
                       onClick={e => { e.stopPropagation(); setShowDeleteDialog({ open: true, sessionId: s.id }); }}
-                      title="More options"
-                      style={{ position: 'absolute', right: 8, top: 12, background: 'none', border: 'none', color: '#b0b3c6', fontSize: 20, cursor: 'pointer', padding: 0 }}
+                      title="Delete analysis"
                     >
                       &#8942;
                     </button>
@@ -469,41 +482,26 @@ function App() {
           )}
         </aside>
         {/* Main panel */}
-        <main className="gpt-main-panel">
-          <div className="gpt-main-header">
+        <main className="flex-1 flex flex-col items-center justify-start bg-none relative z-0 transition-all duration-300 px-2 md:px-8 min-h-screen w-screen">
+          <div className="w-full flex items-center gap-3 pt-8 pb-4 px-0 mb-4 relative">
             <span
-              className="gpt-main-back"
-              style={{ cursor: 'pointer', userSelect: 'none' }}
+              className="text-gray-400 text-xl ml-8 cursor-pointer select-none transition-colors hover:bg-gray-800 hover:text-green-500 px-3 py-1 rounded"
               onClick={() => setSidebarCollapsed(v => !v)}
             >
               {sidebarCollapsed ? '>' : '<'}
             </span>
-            <span className="gpt-main-title">Sentiment Analysis Chat</span>
-            <span className="gpt-main-model">Panda AI</span>
+            <span className="text-2xl font-extrabold text-white tracking-tight">Sentiment Analysis Chat</span>
+            <span className="ml-3 bg-[#222] text-green-500 text-base font-semibold rounded px-3 py-1 shadow">Panda AI</span>
           </div>
-          {/* Default Home Page */}
           {showDefaultHome ? (
-            <div style={{
-              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh', width: '100%'
-            }}>
-              <div style={{ fontSize: 64, marginBottom: 16 }}>🐼</div>
-              <h1 style={{ fontSize: 36, marginBottom: 12, color: '#22c55e' }}>Welcome to Panda Sentiment Analysis</h1>
-              <p style={{ fontSize: 18, color: '#b0b3c6', maxWidth: 480, textAlign: 'center', marginBottom: 32 }}>
+            <div className="flex flex-col items-center justify-center h-[70vh] w-full animate-fadeIn">
+              <div className="text-8xl mb-6 drop-shadow-lg">🐼</div>
+              <h1 className="text-4xl md:text-5xl mb-4 text-green-500 font-extrabold text-center tracking-tight">Welcome to Panda Sentiment Analysis</h1>
+              <p className="text-lg md:text-xl text-gray-300 max-w-2xl text-center mb-10 font-medium">
                 Instantly analyze the sentiment of your messages. Register or log in to chat with Panda and get real-time feedback on your text's mood. Start your positive journey today!
               </p>
               <button
-                style={{
-                  background: '#22c55e',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: 12,
-                  padding: '16px 40px',
-                  fontSize: 20,
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  boxShadow: '0 2px 8px #22c55e33',
-                  marginBottom: 12
-                }}
+                className="bg-green-500 text-white rounded-xl px-12 py-4 text-2xl font-bold shadow-xl mb-3 hover:bg-green-600 transition-colors"
                 onClick={() => setShowDefaultHome(false)}
               >
                 Get Started
@@ -513,95 +511,89 @@ function App() {
             <>
               {/* Only show the chat and welcome panel logic, no activeTab checks */}
               {hasStarted ? (
-                <div className="whatsapp-chat-log">
-                  <div ref={chatWindowRef} className="whatsapp-chat-window">
+                <div className="flex flex-col w-full max-w-2xl h-[60vh] bg-[#181a1b] rounded-xl shadow-lg p-4 overflow-hidden">
+                  <div ref={chatWindowRef} className="flex-1 overflow-y-auto space-y-3 pr-2">
                     {chat.map((msg, idx) => (
                       <div
                         key={idx}
                         className={
                           msg.sender === 'user'
-                            ? 'whatsapp-msg whatsapp-msg-user'
-                            : 'whatsapp-msg whatsapp-msg-bot'
+                            ? 'flex justify-end'
+                            : 'flex justify-start'
                         }
                       >
-                        <div className="whatsapp-msg-bubble">
+                        <div className={
+                          msg.sender === 'user'
+                            ? 'bg-gradient-to-r from-blue-500 to-blue-400 text-white rounded-2xl px-5 py-3 max-w-xs shadow-md'
+                            : 'bg-[#23263a] text-green-400 rounded-2xl px-5 py-3 max-w-xs shadow-md'
+                        }>
                           {msg.text}
-                          <div className="whatsapp-msg-timestamp">{msg.time}</div>
+                          <div className="text-xs text-gray-400 mt-1 text-right">{msg.time}</div>
                         </div>
                       </div>
                     ))}
                   </div>
-                  <form className="gpt-prompt-form" onSubmit={handleSend}>
+                  <form className="flex items-center mt-4 gap-2" onSubmit={handleSend}>
                     <input
-                      className="gpt-prompt-input"
+                      className="flex-1 rounded-lg px-4 py-2 bg-[#23263a] text-white border border-[#2e3250] focus:border-blue-400 focus:ring-2 focus:ring-blue-400 outline-none transition"
                       placeholder={user ? "Type your message..." : "Login to start chatting..."}
                       value={message}
                       onChange={e => setMessage(e.target.value)}
                       disabled={!user || loading}
                     />
-                    <button className="gpt-prompt-send" type="submit" disabled={!user || loading || !message.trim()}>
+                    <button className="bg-green-500 text-white rounded-lg px-5 py-2 font-bold text-lg shadow hover:bg-green-600 transition" type="submit" disabled={!user || loading || !message.trim()}>
                       →
                     </button>
                   </form>
                 </div>
               ) : (
-                <div className="gpt-welcome-panel">
-                  <div className="gpt-welcome-logo">🐼</div>
-                  <h2>Welcome to Panda Sentiment Chat!</h2>
-                  <div className="gpt-welcome-desc">
+                <div className="flex flex-col items-center justify-center mx-auto mt-4 bg-[#181a1b] rounded-2xl shadow-2xl px-8 py-6 min-w-[320px] max-w-[700px] w-[90vw] min-h-[220px] max-h-[420px] text-white animate-popIn">
+                  <div className="text-5xl mb-3">🐼</div>
+                  <h2 className="text-2xl font-bold mb-2 text-center">Welcome to Panda Sentiment Chat!</h2>
+                  <div className="text-gray-400 text-base mb-4 text-center">
                     Analyze the sentiment of your messages instantly. Register or log in to start chatting with Panda and get real-time feedback on your text's mood.
                   </div>
-                  <div className="gpt-feature-cards">
-                    <div className="gpt-feature-card">Real-time Sentiment Analysis</div>
-                    <div className="gpt-feature-card">User Authentication</div>
-                    <div className="gpt-feature-card">Secure MongoDB Storage</div>
+                  <div className="flex gap-4 mb-4 w-full justify-center">
+                    <div className="bg-[#181a1b] border border-[#23272a] rounded-xl px-6 py-4 text-green-400 font-semibold text-base text-center shadow hover:bg-green-500 hover:text-[#181a1b] transition cursor-pointer">Real-time Sentiment Analysis</div>
+                    <div className="bg-[#181a1b] border border-[#23272a] rounded-xl px-6 py-4 text-green-400 font-semibold text-base text-center shadow hover:bg-green-500 hover:text-[#181a1b] transition cursor-pointer">User Authentication</div>
+                    <div className="bg-[#181a1b] border border-[#23272a] rounded-xl px-6 py-4 text-green-400 font-semibold text-base text-center shadow hover:bg-green-500 hover:text-[#181a1b] transition cursor-pointer">Secure MongoDB Storage</div>
                   </div>
-                  <div className="gpt-prompt-tabs">
-                    <span className="gpt-prompt-tab gpt-prompt-tab-active">All</span>
-                    <span className="gpt-prompt-tab">Positive</span>
-                    <span className="gpt-prompt-tab">Negative</span>
-                    <span className="gpt-prompt-tab">Neutral</span>
+                  <div className="flex gap-4 mb-4 w-full justify-center">
+                    <span className="bg-green-500 text-[#181a1b] font-semibold rounded-lg px-4 py-2 cursor-pointer transition">All</span>
+                    <span className="text-gray-400 font-semibold rounded-lg px-4 py-2 cursor-pointer hover:bg-green-500 hover:text-[#181a1b] transition">Positive</span>
+                    <span className="text-gray-400 font-semibold rounded-lg px-4 py-2 cursor-pointer hover:bg-green-500 hover:text-[#181a1b] transition">Negative</span>
+                    <span className="text-gray-400 font-semibold rounded-lg px-4 py-2 cursor-pointer hover:bg-green-500 hover:text-[#181a1b] transition">Neutral</span>
                   </div>
-                  <form className="gpt-prompt-form" onSubmit={handleSend}>
+                  <form className="flex items-center w-full bg-[#23272a] rounded-xl shadow px-4 py-2 mb-4" onSubmit={handleSend}>
                     <input
-                      className="gpt-prompt-input"
+                      className="flex-1 bg-transparent text-white text-base px-2 py-2 outline-none"
                       placeholder={user ? "Type your message for sentiment analysis..." : "Login to start chatting..."}
                       value={message}
                       onChange={e => setMessage(e.target.value)}
                       disabled={!user || loading}
                     />
-                    <button className="gpt-prompt-send" type="submit" disabled={!user || loading || !message.trim()}>
+                    <button className="bg-green-500 text-white rounded-lg px-4 py-2 font-bold text-lg shadow hover:bg-green-600 transition" type="submit" disabled={!user || loading || !message.trim()}>
                       →
                     </button>
                   </form>
-                  <div ref={chatWindowRef} style={{width: '100%', maxHeight: 320, minHeight: 120, overflowY: 'auto', marginTop: 24, background: 'rgba(24,26,27,0.92)', borderRadius: 12, padding: 12}}>
+                  <div ref={chatWindowRef} className="w-full max-h-80 min-h-28 overflow-y-auto mt-2 bg-[#181a1b] rounded-xl p-3">
                     {user && chat.length > 0 && chat.map((msg, idx) => (
-                      <div key={idx} className={msg.sender === 'user' ? 'user-msg' : 'bot-msg'} style={{marginBottom: 8}}>
-                        <div className="msg-avatar">
-                          {msg.sender === 'user' ? (user ? user.name[0]?.toUpperCase() : 'U') : '🐼'}
-                        </div>
-                        <div className="msg-bubble">
-                          <b>{msg.sender === 'user' ? (user ? user.name : 'You') : 'Panda'}:</b> {msg.text}
-                          <div className="msg-timestamp">{msg.time}</div>
+                      <div key={idx} className={`flex items-end mb-2 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`flex items-center ${msg.sender === 'user' ? 'flex-row-reverse' : ''}`}>
+                          <div className="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-xl text-white font-bold mr-2 ml-2">
+                            {msg.sender === 'user' ? (user ? user.name[0]?.toUpperCase() : 'U') : '🐼'}
+                          </div>
+                          <div className={`rounded-2xl px-4 py-2 max-w-xs shadow-md ${msg.sender === 'user' ? 'bg-gradient-to-r from-blue-500 to-blue-400 text-white' : 'bg-[#23263a] text-green-400'}`}> 
+                            <b>{msg.sender === 'user' ? (user ? user.name : 'You') : 'Panda'}:</b> {msg.text}
+                            <div className="text-xs text-gray-400 mt-1 text-right">{msg.time}</div>
+                          </div>
                         </div>
                       </div>
                     ))}
                     {!user && !showAuthModal && (
-                      <div style={{ width: '100%', display: 'flex', justifyContent: 'center', marginTop: 24 }}>
+                      <div className="w-full flex justify-center mt-6">
                         <button
-                          style={{
-                            background: '#232b3a',
-                            color: '#fff',
-                            fontWeight: 700,
-                            fontSize: 22,
-                            border: 'none',
-                            borderRadius: 16,
-                            padding: '24px 0',
-                            width: '100%',
-                            maxWidth: 520,
-                            cursor: 'pointer',
-                            boxShadow: '0 2px 8px #0002'
-                          }}
+                          className="bg-[#232b3a] text-white font-bold text-lg rounded-xl px-8 py-6 w-full max-w-xl shadow hover:bg-green-500 hover:text-[#181a1b] transition"
                           onClick={() => setShowAuthModal(true)}
                         >
                           Sign in or Sign up to chat
@@ -609,7 +601,7 @@ function App() {
                       </div>
                     )}
                     {user && !hasStarted && (
-                      <div style={{ width: '100%', textAlign: 'center', fontWeight: 700, fontSize: 22, color: '#22c55e', marginTop: 24, letterSpacing: 0.5 }}>
+                      <div className="w-full text-center font-bold text-2xl text-green-500 mt-6 tracking-wide">
                         Start your positive journey! 🚀
                       </div>
                     )}
@@ -622,19 +614,20 @@ function App() {
       </div>
       {/* Auth Modal for Login/Signup */}
       {showAuthModal && (
-        <div className="modal-overlay">
-          <div className="auth-modal">
+        <div className="fixed inset-0 bg-black bg-opacity-80 z-[2000] flex items-center justify-center animate-fadeIn">
+          <div className="bg-[#23263a] rounded-3xl shadow-2xl p-10 min-w-[350px] max-w-[95vw] flex flex-col items-center relative animate-popIn" style={{boxShadow: '0 8px 40px 0 rgba(0,0,0,0.45)'}}>
             <button
-              className="modal-close-x"
+              className="absolute top-6 right-7 text-gray-300 text-3xl font-bold hover:text-green-400 transition-colors focus:outline-none"
               aria-label="Close"
               onClick={() => setShowAuthModal(false)}
+              style={{lineHeight: 1}}
             >
               ×
             </button>
+            <h2 className="mb-6 text-3xl font-extrabold text-green-400 text-center tracking-tight">{authMode === 'login' ? 'Login' : 'Register'}</h2>
             {showLoadingAnim && <LoadingSpinner />}
             {!showLoadingAnim && (
-              <form className="login-form" onSubmit={authMode === 'login' ? handleLogin : handleRegister}>
-                <h2>{authMode === 'login' ? 'Login' : 'Register'}</h2>
+              <form className="w-full flex flex-col gap-5" onSubmit={authMode === 'login' ? handleLogin : handleRegister}>
                 {authMode === 'register' && (
                   <input
                     type="text"
@@ -643,6 +636,7 @@ function App() {
                     value={loginForm.name || ''}
                     onChange={handleLoginChange}
                     required
+                    className="w-full p-3 rounded-xl bg-[#181c2b] text-white text-base shadow focus:outline-none focus:ring-2 focus:ring-green-400 placeholder-gray-400"
                   />
                 )}
                 <input
@@ -652,6 +646,7 @@ function App() {
                   value={loginForm.email || ''}
                   onChange={handleLoginChange}
                   required
+                  className="w-full p-3 rounded-xl bg-[#181c2b] text-white text-base shadow focus:outline-none focus:ring-2 focus:ring-green-400 placeholder-gray-400"
                 />
                 <input
                   type="password"
@@ -660,19 +655,22 @@ function App() {
                   value={loginForm.password || ''}
                   onChange={handleLoginChange}
                   required
+                  className="w-full p-3 rounded-xl bg-[#181c2b] text-white text-base shadow focus:outline-none focus:ring-2 focus:ring-green-400 placeholder-gray-400"
                 />
                 {authError && (
-                  <div style={{ color: authError.includes('successful') ? 'limegreen' : 'red', marginBottom: 8 }}>{authError}</div>
+                  <div className={`mb-2 text-center font-semibold ${authError.includes('successful') ? 'text-green-400' : 'text-red-400'}`}>{authError}</div>
                 )}
-                <button type="submit">{authMode === 'login' ? 'Login' : 'Register'}</button>
-                <div style={{ marginTop: 12 }}>
+                <button type="submit" className="w-full bg-green-500 text-white rounded-xl py-3 font-extrabold text-lg shadow-lg hover:bg-green-600 transition-colors mt-2">
+                  {authMode === 'login' ? 'Login' : 'Register'}
+                </button>
+                <div className="mt-2 text-center text-base text-gray-300">
                   {authMode === 'login' ? (
                     <span>Don't have an account?{' '}
-                      <button type="button" className="modal-link" onClick={() => { setAuthMode('register'); setAuthError(''); }}>Register</button>
+                      <button type="button" className="text-green-400 underline ml-1 font-semibold hover:text-green-300" onClick={() => { setAuthMode('register'); setAuthError(''); }}>Register</button>
                     </span>
                   ) : (
                     <span>Already have an account?{' '}
-                      <button type="button" className="modal-link" onClick={() => { setAuthMode('login'); setAuthError(''); }}>Login</button>
+                      <button type="button" className="text-green-400 underline ml-1 font-semibold hover:text-green-300" onClick={() => { setAuthMode('login'); setAuthError(''); }}>Login</button>
                     </span>
                   )}
                 </div>
@@ -682,55 +680,49 @@ function App() {
         </div>
       )}
       {showLogoutModal && (
-        <div className="modal-overlay">
-          <div className="auth-modal">
+        <div className="fixed inset-0 bg-black bg-opacity-80 z-[2000] flex items-center justify-center animate-fadeIn">
+          <div className="bg-[#23263a] rounded-2xl shadow-2xl p-9 min-w-[280px] max-w-[90vw] flex flex-col items-center relative animate-popIn">
             <button
-              className="modal-close-x"
+              className="absolute top-4 right-5 text-gray-400 text-3xl font-bold hover:text-blue-400 transition-colors"
               aria-label="Close"
               onClick={() => setShowLogoutModal(false)}
             >
               ×
             </button>
-            <div style={{ textAlign: 'center' }}>
-              <h2>Confirm Logout</h2>
-              <p>Are you sure you want to logout?</p>
-              <div style={{ display: 'flex', gap: 12, marginTop: 18 }}>
-                <button
-                  className="logout-btn-theme"
-                  style={{ width: '100%', fontWeight: 600 }}
-                  onClick={() => { handleLogout(); setShowLogoutModal(false); }}
-                >
-                  Logout
-                </button>
-                <button
-                  className="logout-btn-theme"
-                  style={{ width: '100%', fontWeight: 600 }}
-                  onClick={() => setShowLogoutModal(false)}
-                >
-                  Cancel
-                </button>
-              </div>
+            <h2 className="text-xl font-bold mb-3 text-green-500">Confirm Logout</h2>
+            <p className="mb-5 text-white">Are you sure you want to logout?</p>
+            <div className="flex gap-4 w-full">
+              <button
+                className="flex-1 bg-red-500 text-white rounded-lg py-2 font-bold text-lg shadow hover:bg-red-600 transition-colors"
+                onClick={() => { handleLogout(); setShowLogoutModal(false); }}
+              >
+                Logout
+              </button>
+              <button
+                className="flex-1 bg-gray-600 text-white rounded-lg py-2 font-bold text-lg shadow hover:bg-gray-700 transition-colors"
+                onClick={() => setShowLogoutModal(false)}
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>
       )}
       {showDeleteDialog.open && (
-        <div className="modal-overlay">
-          <div className="auth-modal" style={{ minWidth: 260, minHeight: 120, textAlign: 'center' }}>
-            <h2 style={{ fontSize: '1.2rem', marginBottom: 18 }}>Delete Analysis?</h2>
-            <p style={{ marginBottom: 18 }}>Are you sure you want to delete this chat log?</p>
-            <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+        <div className="fixed inset-0 bg-black bg-opacity-80 z-[2000] flex items-center justify-center animate-fadeIn">
+          <div className="bg-[#23263a] rounded-2xl shadow-2xl p-8 min-w-[260px] max-w-[90vw] flex flex-col items-center relative animate-popIn text-center">
+            <h2 className="text-lg font-bold mb-3 text-red-400">Delete Analysis?</h2>
+            <p className="mb-5 text-white">Are you sure you want to delete this chat log?</p>
+            <div className="flex gap-4 w-full justify-center">
               <button
-                className="logout-btn-theme"
-                style={{ width: 100, fontWeight: 600 }}
+                className="flex-1 bg-red-500 text-white rounded-lg py-2 font-bold text-lg shadow hover:bg-red-600 transition-colors"
                 onClick={() => handleDeleteSession(showDeleteDialog.sessionId)}
                 disabled={sessions.length <= 1}
               >
                 Delete
               </button>
               <button
-                className="logout-btn-theme"
-                style={{ width: 100, fontWeight: 600 }}
+                className="flex-1 bg-gray-600 text-white rounded-lg py-2 font-bold text-lg shadow hover:bg-gray-700 transition-colors"
                 onClick={() => setShowDeleteDialog({ open: false, sessionId: null })}
               >
                 Cancel
@@ -740,22 +732,21 @@ function App() {
         </div>
       )}
       {showProfile && user && (
-        <div className="modal-overlay">
-          <div className="auth-modal" style={{ minWidth: 280, minHeight: 180, textAlign: 'center', padding: 32 }}>
-            <div style={{ fontSize: 48, marginBottom: 12 }}>{avatar}</div>
-            <div style={{ fontWeight: 700, fontSize: 20, marginBottom: 4 }}>{user.name}</div>
-            <div style={{ color: '#b0b3c6', fontSize: 15, marginBottom: 18 }}>{user.email}</div>
+        <div className="fixed inset-0 bg-black bg-opacity-80 z-[2000] flex items-center justify-center animate-fadeIn">
+          <div className="bg-[#23263a] rounded-2xl shadow-2xl p-10 min-w-[280px] max-w-[90vw] flex flex-col items-center relative animate-popIn text-center">
+            <div className="text-5xl mb-3">{avatar}</div>
+            <div className="font-bold text-xl mb-1 text-white">{user.name}</div>
+            <div className="text-gray-400 text-base mb-4">{user.email}</div>
             <button
-              style={{ background: '#ef4444', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 0', width: '100%', fontWeight: 600, fontSize: 16, marginTop: 8, cursor: 'pointer', boxShadow: '0 2px 8px #ef444422' }}
+              className="w-full bg-red-500 text-white rounded-lg py-3 font-bold text-lg shadow hover:bg-red-600 transition-colors mb-2"
               onClick={() => { handleLogout(); setShowProfile(false); }}
             >
               Logout
             </button>
             <button
-              className="modal-close-x"
+              className="absolute top-4 right-5 text-gray-400 text-3xl font-bold hover:text-blue-400 transition-colors"
               aria-label="Close"
               onClick={() => setShowProfile(false)}
-              style={{ position: 'absolute', top: 16, right: 20 }}
             >
               ×
             </button>
