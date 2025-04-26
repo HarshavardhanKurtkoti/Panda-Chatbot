@@ -11,13 +11,19 @@ from dotenv import load_dotenv
 from flask_socketio import SocketIO, emit
 
 app = Flask(__name__)
-CORS(app, origins=[
-    os.environ.get('FRONTEND_URL')
-])
+frontend_url = os.environ.get('FRONTEND_URL')
+if frontend_url:
+    CORS(app, origins=[frontend_url])
+else:
+    CORS(app)
+
 load_dotenv()
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY')
 if not app.config['SECRET_KEY']:
     raise RuntimeError('SECRET_KEY environment variable must be set for production.')
+
+# Initialize SocketIO
+socketio = SocketIO(app, cors_allowed_origins=[os.environ.get('FRONTEND_URL')])
 
 # MongoDB setup
 client = MongoClient(os.environ.get('MONGODB_URI', 'mongodb+srv://kurtkotiharsha:mongodb1104@cluster0.k4lwr.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0'))
