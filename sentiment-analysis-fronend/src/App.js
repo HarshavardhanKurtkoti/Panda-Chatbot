@@ -397,7 +397,7 @@ function App() {
 
   return (
     <div className="min-h-screen w-screen bg-gradient-to-br from-[#181c2b] via-[#23263a] to-[#0a0f0c] fixed top-0 left-0 right-0 bottom-0 z-0 font-sans">
-      <div className="h-screen w-screen relative z-10">
+      <div className="h-screen w-screen relative z-10" style={{ padding: 0 }}>
         {/* Sidebar Overlay for Mobile */}
         {(!sidebarCollapsed && window.innerWidth <= 900) && (
           <div
@@ -409,17 +409,23 @@ function App() {
         <aside
           className={
             [
-              'bg-[#20232a] flex flex-col border-r border-[#23263a] shadow-2xl text-white min-w-[70px] max-w-[380px] w-[380px] rounded-tr-3xl rounded-br-3xl',
+              'bg-[#20232a] flex flex-col border-r border-[#23263a] shadow-2xl text-white',
+              isMobile ? 'rounded-2xl' : 'rounded-tr-3xl rounded-br-3xl',
               'transition-transform duration-700 ease-[cubic-bezier(.4,2,.6,1)]',
-              sidebarCollapsed ? '-translate-x-full pointer-events-none' : 'translate-x-0 pointer-events-auto',
-              'fixed left-0 top-0 h-screen z-[1002]'
+              sidebarCollapsed ? '-translate-x-[120vw] pointer-events-none' : 'translate-x-0 pointer-events-auto',
+              isMobile ? 'fixed left-0 top-0' : 'fixed left-0 top-0',
+              'z-[1002]'
             ].join(' ')
           }
           style={{
-            width: sidebarCollapsed ? 70 : 360,
-            minWidth: sidebarCollapsed ? 70 : 360,
-            maxWidth: sidebarCollapsed ? 70 : 380,
-            position: 'fixed'
+            width: isMobile ? 'calc(100vw - 40px)' : (sidebarCollapsed ? 70 : 360),
+            minWidth: isMobile ? 'calc(100vw - 40px)' : (sidebarCollapsed ? 70 : 360),
+            maxWidth: isMobile ? 'calc(100vw - 40px)' : (sidebarCollapsed ? 70 : 380),
+            height: isMobile ? 'calc(100vh - 40px)' : '100vh',
+            margin: isMobile ? 20 : 0,
+            position: 'fixed',
+            boxSizing: 'border-box',
+            borderRadius: isMobile ? 16 : undefined // 16px = rounded-2xl
           }}
         >
           <div className={`w-full flex items-center gap-3 font-semibold pb-4 px-6 pt-8 ${isMobile ? 'pr-16' : ''} text-white relative`}>
@@ -482,37 +488,71 @@ function App() {
           )}
         </aside>
         {/* Main panel */}
-        <main className="flex-1 flex flex-col items-center justify-start bg-none relative z-0 transition-all duration-300 px-2 md:px-8 min-h-screen w-screen">
-          <div className="w-full flex items-center gap-3 pt-8 pb-4 px-0 mb-4 relative">
+        <main className="flex-1 flex flex-col items-center justify-start bg-none relative z-0 transition-all duration-300 px-2 md:px-8 min-h-screen w-screen"
+          style={{ padding: isMobile ? 16 : 0, boxSizing: 'border-box' }}
+        >
+          <div className="w-full flex flex-col items-center gap-2 pt-2 pb-4 px-0 mb-0 relative">
             <span
-              className="text-gray-400 text-xl ml-8 cursor-pointer select-none transition-colors hover:bg-gray-800 hover:text-green-500 px-3 py-1 rounded"
+              className="text-gray-400 text-xl self-start cursor-pointer select-none transition-colors hover:bg-gray-800 hover:text-green-500 px-3 py-1 rounded mb-2"
               onClick={() => setSidebarCollapsed(v => !v)}
             >
               {sidebarCollapsed ? '>' : '<'}
             </span>
-            <span className="text-2xl font-extrabold text-white tracking-tight">Sentiment Analysis Chat</span>
-            <span className="ml-3 bg-[#222] text-green-500 text-base font-semibold rounded px-3 py-1 shadow">Panda AI</span>
           </div>
           {showDefaultHome ? (
-            <div className="flex flex-col items-center justify-center h-[70vh] w-full animate-fadeIn">
-              <div className="text-8xl mb-6 drop-shadow-lg">🐼</div>
-              <h1 className="text-4xl md:text-5xl mb-4 text-green-500 font-extrabold text-center tracking-tight">Welcome to Panda Sentiment Analysis</h1>
-              <p className="text-lg md:text-xl text-gray-300 max-w-2xl text-center mb-10 font-medium">
-                Instantly analyze the sentiment of your messages. Register or log in to chat with Panda and get real-time feedback on your text's mood. Start your positive journey today!
-              </p>
-              <button
-                className="bg-green-500 text-white rounded-xl px-12 py-4 text-2xl font-bold shadow-xl mb-3 hover:bg-green-600 transition-colors"
-                onClick={() => setShowDefaultHome(false)}
-              >
-                Get Started
-              </button>
+            <div className="flex flex-col items-center justify-center h-[70vh] w-full animate-fadeIn mt-12">
+              <div className="relative w-full max-w-xl mx-auto rounded-[2.5rem] p-10 bg-gradient-to-br from-[#23263a]/80 via-[#1e293b]/80 to-[#0a0f0c]/80 backdrop-blur-xl shadow-2xl border border-white/20 flex flex-col items-center transition-all duration-300">
+                <div className="flex w-full justify-center">
+                  <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-24 h-24 rounded-full bg-gradient-to-tr from-green-400 to-blue-400 flex items-center justify-center shadow-xl border-4 border-white animate-bounce-slow z-10">
+                    <img src="/favicon.ico" alt="Panda Logo" className="w-16 h-16" />
+                  </div>
+                </div>
+                <h1 className="text-4xl md:text-5xl mb-3 text-green-400 font-extrabold text-center tracking-tight leading-tight drop-shadow-lg mt-16">Welcome to Panda Sentiment Chat!</h1>
+                <p className="text-lg md:text-xl text-gray-100 max-w-2xl text-center mb-8 font-medium">
+                  Instantly analyze the sentiment of your messages. Register or log in to chat with Panda and get real-time feedback on your text's mood.
+                </p>
+                <button
+                  className="bg-gradient-to-r from-green-500 to-blue-500 text-white rounded-2xl px-10 py-3 text-xl font-bold shadow-xl mb-3 hover:scale-105 hover:from-green-600 hover:to-blue-600 transition-all duration-200 animate-pulse"
+                  onClick={() => setShowDefaultHome(false)}
+                >
+                  Start your positive journey!
+                </button>
+                <div className="mt-6 text-center text-white/80 text-base italic">
+                  "Panda AI helps you understand the mood of your words. Try it now!"
+                </div>
+              </div>
+              <style>{`
+                @keyframes bounce-slow { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
+                .animate-bounce-slow { animation: bounce-slow 2.5s infinite; }
+                /* Custom scrollbar styles for chat area only */
+                .custom-scrollbar::-webkit-scrollbar {
+                  width: 10px;
+                  background: #23263a;
+                }
+                .custom-scrollbar::-webkit-scrollbar-thumb {
+                  background: linear-gradient(135deg, #22c55e 0%, #3b82f6 100%);
+                  border-radius: 8px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                  background: linear-gradient(135deg, #16a34a 0%, #2563eb 100%);
+                }
+                .custom-scrollbar::-webkit-scrollbar-track {
+                  background: #181c2b;
+                  border-radius: 8px;
+                }
+                /* Firefox */
+                .custom-scrollbar {
+                  scrollbar-width: thin;
+                  scrollbar-color: #22c55e #181c2b;
+                }
+              `}</style>
             </div>
           ) : (
             <>
               {/* Only show the chat and welcome panel logic, no activeTab checks */}
               {hasStarted ? (
-                <div className="flex flex-col w-full max-w-2xl h-[60vh] bg-[#181a1b] rounded-xl shadow-lg p-4 overflow-hidden">
-                  <div ref={chatWindowRef} className="flex-1 overflow-y-auto space-y-3 pr-2">
+                <div className="flex flex-col w-full max-w-3xl h-[70vh] bg-gradient-to-br from-[#23263a]/80 via-[#1e293b]/80 to-[#0a0f0c]/80 rounded-[2.5rem] shadow-2xl px-16 py-12 text-white animate-popIn text-center backdrop-blur-xl border border-white/20 transition-all duration-300 overflow-hidden">
+                  <div ref={chatWindowRef} className="flex-1 overflow-y-auto space-y-3 pr-2 text-center custom-scrollbar">
                     {chat.map((msg, idx) => (
                       <div
                         key={idx}
@@ -524,66 +564,59 @@ function App() {
                       >
                         <div className={
                           msg.sender === 'user'
-                            ? 'bg-gradient-to-r from-blue-500 to-blue-400 text-white rounded-2xl px-5 py-3 max-w-xs shadow-md'
-                            : 'bg-[#23263a] text-green-400 rounded-2xl px-5 py-3 max-w-xs shadow-md'
+                            ? 'bg-gradient-to-r from-green-500 to-green-400 text-white rounded-2xl px-5 py-3 max-w-xs shadow-md text-right font-bold'
+                            : 'bg-[#181c2b] text-white rounded-2xl px-5 py-3 max-w-xs shadow-md text-left font-bold'
                         }>
-                          {msg.text}
-                          <div className="text-xs text-gray-400 mt-1 text-right">{msg.time}</div>
+                          <span className="text-white" style={{wordBreak: 'break-word'}}>{msg.text}</span>
+                          <div className="text-xs text-gray-300 mt-1 text-right">{msg.time}</div>
                         </div>
                       </div>
                     ))}
                   </div>
                   <form className="flex items-center mt-4 gap-2" onSubmit={handleSend}>
                     <input
-                      className="flex-1 rounded-lg px-4 py-2 bg-[#23263a] text-white border border-[#2e3250] focus:border-blue-400 focus:ring-2 focus:ring-blue-400 outline-none transition"
+                      className="flex-1 rounded-lg px-4 py-2 bg-[#23263a]/80 text-white border border-[#2e3250] focus:border-blue-400 focus:ring-2 focus:ring-blue-400 outline-none transition text-center"
                       placeholder={user ? "Type your message..." : "Login to start chatting..."}
                       value={message}
                       onChange={e => setMessage(e.target.value)}
                       disabled={!user || loading}
                     />
-                    <button className="bg-green-500 text-white rounded-lg px-5 py-2 font-bold text-lg shadow hover:bg-green-600 transition" type="submit" disabled={!user || loading || !message.trim()}>
+                    <button className="bg-gradient-to-r from-green-500 to-blue-500 text-white rounded-lg px-5 py-2 font-bold text-lg shadow hover:scale-105 hover:from-green-600 hover:to-blue-600 transition-all duration-200 text-center" type="submit" disabled={!user || loading || !message.trim()}>
                       →
                     </button>
                   </form>
                 </div>
               ) : (
-                <div className="flex flex-col items-center justify-center mx-auto mt-4 bg-[#181a1b] rounded-2xl shadow-2xl px-8 py-6 min-w-[320px] max-w-[700px] w-[90vw] min-h-[220px] max-h-[420px] text-white animate-popIn">
-                  <div className="text-5xl mb-3">🐼</div>
-                  <h2 className="text-2xl font-bold mb-2 text-center">Welcome to Panda Sentiment Chat!</h2>
-                  <div className="text-gray-400 text-base mb-4 text-center">
+                <div className="flex flex-col items-center justify-center mx-auto mt-4 bg-gradient-to-br from-[#23263a]/80 via-[#1e293b]/80 to-[#0a0f0c]/80 rounded-[2.5rem] shadow-2xl px-16 py-12 min-w-[320px] max-w-3xl w-[90vw] min-h-[220px] max-h-[600px] text-white animate-popIn text-center backdrop-blur-xl border border-white/20 transition-all duration-300">
+                  <div className="flex w-full justify-center">
+                    <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-24 h-24 rounded-full bg-gradient-to-tr from-green-400 to-blue-400 flex items-center justify-center shadow-xl border-4 border-white animate-bounce-slow z-10">
+                      <img src="/favicon.ico" alt="Panda Logo" className="w-16 h-16" />
+                    </div>
+                  </div>
+                  <h2 className="text-3xl font-bold mb-2 text-center text-green-400 mt-16">Welcome to Panda Sentiment Chat!</h2>
+                  <div className="text-gray-100 text-lg mb-4 text-center font-medium">
                     Analyze the sentiment of your messages instantly. Register or log in to start chatting with Panda and get real-time feedback on your text's mood.
                   </div>
-                  <div className="flex gap-4 mb-4 w-full justify-center">
-                    <div className="bg-[#181a1b] border border-[#23272a] rounded-xl px-6 py-4 text-green-400 font-semibold text-base text-center shadow hover:bg-green-500 hover:text-[#181a1b] transition cursor-pointer">Real-time Sentiment Analysis</div>
-                    <div className="bg-[#181a1b] border border-[#23272a] rounded-xl px-6 py-4 text-green-400 font-semibold text-base text-center shadow hover:bg-green-500 hover:text-[#181a1b] transition cursor-pointer">User Authentication</div>
-                    <div className="bg-[#181a1b] border border-[#23272a] rounded-xl px-6 py-4 text-green-400 font-semibold text-base text-center shadow hover:bg-green-500 hover:text-[#181a1b] transition cursor-pointer">Secure MongoDB Storage</div>
-                  </div>
-                  <div className="flex gap-4 mb-4 w-full justify-center">
-                    <span className="bg-green-500 text-[#181a1b] font-semibold rounded-lg px-4 py-2 cursor-pointer transition">All</span>
-                    <span className="text-gray-400 font-semibold rounded-lg px-4 py-2 cursor-pointer hover:bg-green-500 hover:text-[#181a1b] transition">Positive</span>
-                    <span className="text-gray-400 font-semibold rounded-lg px-4 py-2 cursor-pointer hover:bg-green-500 hover:text-[#181a1b] transition">Negative</span>
-                    <span className="text-gray-400 font-semibold rounded-lg px-4 py-2 cursor-pointer hover:bg-green-500 hover:text-[#181a1b] transition">Neutral</span>
-                  </div>
-                  <form className="flex items-center w-full bg-[#23272a] rounded-xl shadow px-4 py-2 mb-4" onSubmit={handleSend}>
+                  <form className="flex items-center w-full bg-[#23272a]/80 rounded-xl shadow px-4 py-2 mb-4 mt-2" onSubmit={handleSend}>
                     <input
-                      className="flex-1 bg-transparent text-white text-base px-2 py-2 outline-none"
+                      className="flex-1 bg-transparent text-white text-base px-2 py-2 outline-none text-center"
                       placeholder={user ? "Type your message for sentiment analysis..." : "Login to start chatting..."}
                       value={message}
                       onChange={e => setMessage(e.target.value)}
                       disabled={!user || loading}
                     />
-                    <button className="bg-green-500 text-white rounded-lg px-4 py-2 font-bold text-lg shadow hover:bg-green-600 transition" type="submit" disabled={!user || loading || !message.trim()}>
+                    <button className="bg-gradient-to-r from-green-500 to-blue-500 text-white rounded-lg px-4 py-2 font-bold text-lg shadow hover:scale-105 hover:from-green-600 hover:to-blue-600 transition-all duration-200 ml-2" type="submit" disabled={!user || loading || !message.trim()}>
                       →
                     </button>
                   </form>
-                  <div ref={chatWindowRef} className="w-full max-h-80 min-h-28 overflow-y-auto mt-2 bg-[#181a1b] rounded-xl p-3">
+                  <div ref={chatWindowRef} className="w-full max-h-80 min-h-28 overflow-y-auto mt-2 bg-transparent rounded-xl p-3 text-center custom-scrollbar">
                     {user && chat.length > 0 && chat.map((msg, idx) => (
                       <div key={idx} className={`flex items-end mb-2 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
                         <div className={`flex items-center ${msg.sender === 'user' ? 'flex-row-reverse' : ''}`}>
                           <div className="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-xl text-white font-bold mr-2 ml-2">
                             {msg.sender === 'user' ? (user ? user.name[0]?.toUpperCase() : 'U') : '🐼'}
                           </div>
-                          <div className={`rounded-2xl px-4 py-2 max-w-xs shadow-md ${msg.sender === 'user' ? 'bg-gradient-to-r from-blue-500 to-blue-400 text-white' : 'bg-[#23263a] text-green-400'}`}> 
+                          <div className={`rounded-2xl px-4 py-2 max-w-xs shadow-md ${msg.sender === 'user' ? 'bg-gradient-to-r from-blue-500 to-blue-400 text-white' : 'bg-[#23263a] text-green-400'} text-center`}> 
                             <b>{msg.sender === 'user' ? (user ? user.name : 'You') : 'Panda'}:</b> {msg.text}
                             <div className="text-xs text-gray-400 mt-1 text-right">{msg.time}</div>
                           </div>
@@ -593,7 +626,7 @@ function App() {
                     {!user && !showAuthModal && (
                       <div className="w-full flex justify-center mt-6">
                         <button
-                          className="bg-[#232b3a] text-white font-bold text-lg rounded-xl px-8 py-6 w-full max-w-xl shadow hover:bg-green-500 hover:text-[#181a1b] transition"
+                          className="bg-[#232b3a] text-white font-bold text-lg rounded-xl px-8 py-6 w-full max-w-xl shadow hover:bg-green-500 hover:text-[#181a1b] transition text-center"
                           onClick={() => setShowAuthModal(true)}
                         >
                           Sign in or Sign up to chat
@@ -752,6 +785,158 @@ function App() {
             </button>
           </div>
         </div>
+      )}
+      {/* NavBar with Panda AI and logo */}
+      <nav className="w-full flex flex-col items-center justify-center py-4 bg-gradient-to-r from-green-500 via-blue-500 to-green-400 shadow-lg mb-2" style={{position: 'sticky', top: 0, zIndex: 50}}>
+        <div className="flex flex-col items-center">
+          <img src="/favicon.ico" alt="Panda Logo" className="w-16 h-16 mb-2 rounded-full shadow-xl border-4 border-white" />
+          <span className="text-2xl font-extrabold text-white tracking-tight drop-shadow-lg">Panda AI</span>
+        </div>
+      </nav>
+      {/* Hero Section with glassmorphism and animated gradient background */}
+      {showDefaultHome ? (
+        <div className="flex flex-col items-center justify-center h-[70vh] w-full animate-fadeIn mt-12">
+          <div className="relative w-full max-w-xl mx-auto rounded-[2.5rem] p-10 bg-gradient-to-br from-[#23263a]/80 via-[#1e293b]/80 to-[#0a0f0c]/80 backdrop-blur-xl shadow-2xl border border-white/20 flex flex-col items-center transition-all duration-300">
+            <div className="flex w-full justify-center">
+              <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-24 h-24 rounded-full bg-gradient-to-tr from-green-400 to-blue-400 flex items-center justify-center shadow-xl border-4 border-white animate-bounce-slow z-10">
+                <img src="/favicon.ico" alt="Panda Logo" className="w-16 h-16" />
+              </div>
+            </div>
+            <h1 className="text-4xl md:text-5xl mb-3 text-green-400 font-extrabold text-center tracking-tight leading-tight drop-shadow-lg mt-16">Welcome to Panda Sentiment Chat!</h1>
+            <p className="text-lg md:text-xl text-gray-100 max-w-2xl text-center mb-8 font-medium">
+              Instantly analyze the sentiment of your messages. Register or log in to chat with Panda and get real-time feedback on your text's mood.
+            </p>
+            <button
+              className="bg-gradient-to-r from-green-500 to-blue-500 text-white rounded-2xl px-10 py-3 text-xl font-bold shadow-xl mb-3 hover:scale-105 hover:from-green-600 hover:to-blue-600 transition-all duration-200 animate-pulse"
+              onClick={() => setShowDefaultHome(false)}
+            >
+              Start your positive journey!
+            </button>
+            <div className="mt-6 text-center text-white/80 text-base italic">
+              "Panda AI helps you understand the mood of your words. Try it now!"
+            </div>
+          </div>
+          <style>{`
+            @keyframes bounce-slow { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
+            .animate-bounce-slow { animation: bounce-slow 2.5s infinite; }
+            /* Custom scrollbar styles for chat area only */
+            .custom-scrollbar::-webkit-scrollbar {
+              width: 10px;
+              background: #23263a;
+            }
+            .custom-scrollbar::-webkit-scrollbar-thumb {
+              background: linear-gradient(135deg, #22c55e 0%, #3b82f6 100%);
+              border-radius: 8px;
+            }
+            .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+              background: linear-gradient(135deg, #16a34a 0%, #2563eb 100%);
+            }
+            .custom-scrollbar::-webkit-scrollbar-track {
+              background: #181c2b;
+              border-radius: 8px;
+            }
+            /* Firefox */
+            .custom-scrollbar {
+              scrollbar-width: thin;
+              scrollbar-color: #22c55e #181c2b;
+            }
+          `}</style>
+        </div>
+      ) : (
+        <>
+          {/* Only show the chat and welcome panel logic, no activeTab checks */}
+          {hasStarted ? (
+            <div className="flex flex-col w-full max-w-3xl h-[70vh] bg-gradient-to-br from-[#23263a]/80 via-[#1e293b]/80 to-[#0a0f0c]/80 rounded-[2.5rem] shadow-2xl px-16 py-12 text-white animate-popIn text-center backdrop-blur-xl border border-white/20 transition-all duration-300 overflow-hidden">
+              <div ref={chatWindowRef} className="flex-1 overflow-y-auto space-y-3 pr-2 text-center custom-scrollbar">
+                {chat.map((msg, idx) => (
+                  <div
+                    key={idx}
+                    className={
+                      msg.sender === 'user'
+                        ? 'flex justify-end'
+                        : 'flex justify-start'
+                    }
+                  >
+                    <div className={
+                      msg.sender === 'user'
+                        ? 'bg-gradient-to-r from-green-500 to-green-400 text-white rounded-2xl px-5 py-3 max-w-xs shadow-md text-right font-bold'
+                        : 'bg-[#181c2b] text-white rounded-2xl px-5 py-3 max-w-xs shadow-md text-left font-bold'
+                    }>
+                      <span className="text-white" style={{wordBreak: 'break-word'}}>{msg.text}</span>
+                      <div className="text-xs text-gray-300 mt-1 text-right">{msg.time}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <form className="flex items-center mt-4 gap-2" onSubmit={handleSend}>
+                <input
+                  className="flex-1 rounded-lg px-4 py-2 bg-[#23263a]/80 text-white border border-[#2e3250] focus:border-blue-400 focus:ring-2 focus:ring-blue-400 outline-none transition text-center"
+                  placeholder={user ? "Type your message..." : "Login to start chatting..."}
+                  value={message}
+                  onChange={e => setMessage(e.target.value)}
+                  disabled={!user || loading}
+                />
+                <button className="bg-gradient-to-r from-green-500 to-blue-500 text-white rounded-lg px-5 py-2 font-bold text-lg shadow hover:scale-105 hover:from-green-600 hover:to-blue-600 transition-all duration-200 text-center" type="submit" disabled={!user || loading || !message.trim()}>
+                  →
+                </button>
+              </form>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center mx-auto mt-4 bg-gradient-to-br from-[#23263a]/80 via-[#1e293b]/80 to-[#0a0f0c]/80 rounded-[2.5rem] shadow-2xl px-16 py-12 min-w-[320px] max-w-3xl w-[90vw] min-h-[220px] max-h-[600px] text-white animate-popIn text-center backdrop-blur-xl border border-white/20 transition-all duration-300">
+              <div className="flex w-full justify-center">
+                <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-24 h-24 rounded-full bg-gradient-to-tr from-green-400 to-blue-400 flex items-center justify-center shadow-xl border-4 border-white animate-bounce-slow z-10">
+                  <img src="/favicon.ico" alt="Panda Logo" className="w-16 h-16" />
+                </div>
+              </div>
+              <h2 className="text-3xl font-bold mb-2 text-center text-green-400 mt-16">Welcome to Panda Sentiment Chat!</h2>
+              <div className="text-gray-100 text-lg mb-4 text-center font-medium">
+                Analyze the sentiment of your messages instantly. Register or log in to start chatting with Panda and get real-time feedback on your text's mood.
+              </div>
+              <form className="flex items-center w-full bg-[#23272a]/80 rounded-xl shadow px-4 py-2 mb-4 mt-2" onSubmit={handleSend}>
+                <input
+                  className="flex-1 bg-transparent text-white text-base px-2 py-2 outline-none text-center"
+                  placeholder={user ? "Type your message for sentiment analysis..." : "Login to start chatting..."}
+                  value={message}
+                  onChange={e => setMessage(e.target.value)}
+                  disabled={!user || loading}
+                />
+                <button className="bg-gradient-to-r from-green-500 to-blue-500 text-white rounded-lg px-4 py-2 font-bold text-lg shadow hover:scale-105 hover:from-green-600 hover:to-blue-600 transition-all duration-200 ml-2" type="submit" disabled={!user || loading || !message.trim()}>
+                  →
+                </button>
+              </form>
+              <div ref={chatWindowRef} className="w-full max-h-80 min-h-28 overflow-y-auto mt-2 bg-transparent rounded-xl p-3 text-center custom-scrollbar">
+                {user && chat.length > 0 && chat.map((msg, idx) => (
+                  <div key={idx} className={`flex items-end mb-2 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`flex items-center ${msg.sender === 'user' ? 'flex-row-reverse' : ''}`}>
+                      <div className="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-xl text-white font-bold mr-2 ml-2">
+                        {msg.sender === 'user' ? (user ? user.name[0]?.toUpperCase() : 'U') : '🐼'}
+                      </div>
+                      <div className={`rounded-2xl px-4 py-2 max-w-xs shadow-md ${msg.sender === 'user' ? 'bg-gradient-to-r from-blue-500 to-blue-400 text-white' : 'bg-[#23263a] text-green-400'} text-center`}> 
+                        <b>{msg.sender === 'user' ? (user ? user.name : 'You') : 'Panda'}:</b> {msg.text}
+                        <div className="text-xs text-gray-400 mt-1 text-right">{msg.time}</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {!user && !showAuthModal && (
+                  <div className="w-full flex justify-center mt-6">
+                    <button
+                      className="bg-[#232b3a] text-white font-bold text-lg rounded-xl px-8 py-6 w-full max-w-xl shadow hover:bg-green-500 hover:text-[#181a1b] transition text-center"
+                      onClick={() => setShowAuthModal(true)}
+                    >
+                      Sign in or Sign up to chat
+                    </button>
+                  </div>
+                )}
+                {user && !hasStarted && (
+                  <div className="w-full text-center font-bold text-2xl text-green-500 mt-6 tracking-wide">
+                    Start your positive journey! 🚀
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
