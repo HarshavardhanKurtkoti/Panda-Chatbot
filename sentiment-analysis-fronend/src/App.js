@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { io } from 'socket.io-client';
 import AdminPanel from './AdminPanel'; // Import the new AdminPanel component
 
 // Backend base URL (switches between env and localhost)
@@ -204,16 +203,6 @@ function App() {
     };
     fetchChats();
     // WebSocket real-time updates
-    const socket = io(BACKEND_URL);
-    socket.on('chats_updated', (data) => {
-      // If data.user_email is set, only update if it matches current user
-      if (!data.user_email || data.user_email === user.email) {
-        fetchChats();
-      }
-    });
-    return () => {
-      socket.disconnect();
-    };
   }, [user]);
 
   // Save chat to backend whenever sessions change (except on initial load)
