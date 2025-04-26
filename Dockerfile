@@ -17,5 +17,7 @@ COPY sentiment-analysis-backend/. .
 # Expose port (change if your app uses a different port)
 EXPOSE 5000
 
-# Run the backend
-CMD ["python", "main.py"]
+# Run the backend with eventlet for WebSocket support
+CMD ["python", "-m", "flask", "run", "--host=0.0.0.0", "--port=5000"]
+# To use eventlet, you can also use:
+# CMD ["python", "main.py"]

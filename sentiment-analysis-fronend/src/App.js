@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { io } from 'socket.io-client';
+import AdminPanel from './AdminPanel'; // Import the new AdminPanel component
 
 // Backend base URL (switches between env and localhost)
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "http://127.0.0.1:5000";
@@ -72,17 +74,14 @@ function App() {
     const token = localStorage.getItem('token');
     const name = localStorage.getItem('name');
     const email = localStorage.getItem('email');
+    // Always check for string 'true'
+    const is_admin = localStorage.getItem('is_admin') === 'true';
     if (token && name && email) {
-      setUser({ name, email, token });
+      setUser({ name, email, token, is_admin });
     } else {
       setShowAuthModal(true);
     }
   }, []);
-
-  useEffect(() => {
-    if (!user) setShowAuthModal(true);
-    else setShowAuthModal(false);
-  }, [user]);
 
   useEffect(() => {
     if (chatWindowRef.current) {
@@ -134,9 +133,17 @@ function App() {
               };
             });
           }
-          // If no chats, create a default session
+          // Only create a Welcome Chat if there are no sessions at all (not even a Welcome Chat)
           if (!chats.length) {
             chats = [createInitialSession()];
+          } else {
+            // Prevent duplicate Welcome Chat: filter out extra Welcome Chats, keep only the first one
+            const welcomeChats = chats.filter(c => c.title === 'Welcome Chat');
+            if (welcomeChats.length > 1) {
+              // Keep only the first Welcome Chat, remove the rest
+              const firstWelcome = welcomeChats[0];
+              chats = [firstWelcome, ...chats.filter(c => c.title !== 'Welcome Chat')];
+            }
           }
           setSessions(chats);
           setActiveSession(chats[0].id);
@@ -147,6 +154,66 @@ function App() {
       }
     };
     fetchChats();
+  }, [user]);
+
+  // Real-time polling for sidebar sessions
+  useEffect(() => {
+    if (!user || !user.token) return;
+    const fetchChats = async () => {
+      try {
+        const res = await fetch(`${BACKEND_URL}/chats`, {
+          headers: { Authorization: user.token },
+        });
+        const data = await res.json();
+        let chats = [];
+        if (res.ok && data.chats) {
+          chats = data.chats.map(chat => {
+            let createdDate;
+            try {
+              createdDate = new Date(chat.created);
+              if (isNaN(createdDate.getTime()) || createdDate.getFullYear() === 1970) {
+                createdDate = new Date();
+              }
+            } catch {
+              createdDate = new Date();
+            }
+            return {
+              ...chat,
+              created: createdDate,
+            };
+          });
+        }
+        // Only create a Welcome Chat if there are no sessions at all (not even a Welcome Chat)
+        if (!chats.length) {
+          chats = [createInitialSession()];
+        } else {
+          // Prevent duplicate Welcome Chat: filter out extra Welcome Chats, keep only the first one
+          const welcomeChats = chats.filter(c => c.title === 'Welcome Chat');
+          if (welcomeChats.length > 1) {
+            // Keep only the first Welcome Chat, remove the rest
+            const firstWelcome = welcomeChats[0];
+            chats = [firstWelcome, ...chats.filter(c => c.title !== 'Welcome Chat')];
+          }
+        }
+        setSessions(chats);
+        setActiveSession(chats[0].id);
+        setChat(chats[0].messages);
+      } catch (err) {
+        // Optionally handle error
+      }
+    };
+    fetchChats();
+    // WebSocket real-time updates
+    const socket = io(BACKEND_URL);
+    socket.on('chats_updated', (data) => {
+      // If data.user_email is set, only update if it matches current user
+      if (!data.user_email || data.user_email === user.email) {
+        fetchChats();
+      }
+    });
+    return () => {
+      socket.disconnect();
+    };
   }, [user]);
 
   // Save chat to backend whenever sessions change (except on initial load)
@@ -219,12 +286,14 @@ function App() {
       setShowLoadingAnim(false);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Login failed');
-      setUser({ name: data.name, email: data.email, token: data.token });
+      setUser({ name: data.name, email: data.email, token: data.token, is_admin: !!data.is_admin });
       localStorage.setItem('token', data.token);
       localStorage.setItem('name', data.name);
       localStorage.setItem('email', data.email);
+      localStorage.setItem('is_admin', data.is_admin ? 'true' : 'false'); // always store as string
       setLoginForm({ name: '', email: '', password: '' });
       setAuthError('');
+      setShowAuthModal(false); // Close the login/signup popup after successful login
     } catch (err) {
       setShowLoadingAnim(false);
       setAuthError(err.message);
@@ -395,16 +464,24 @@ function App() {
     localStorage.removeItem('email');
   };
 
+  const [showAdminPanel, setShowAdminPanel] = useState(false); // State to control Admin Panel visibility
+  const [isAdmin, setIsAdmin] = useState(false); // Track if the user is an admin
+
+  useEffect(() => {
+    if (user) {
+      setIsAdmin(user.is_admin || false); // Set admin status from user state
+    }
+  }, [user]);
+
+  // Function to close home tab and open admin panel
+  const openAdminPanelDirect = () => {
+    setShowDefaultHome(false);
+    setShowAdminPanel(true);
+  };
+
   return (
     <div className="min-h-screen w-screen bg-gradient-to-br from-[#181c2b] via-[#23263a] to-[#0a0f0c] fixed top-0 left-0 right-0 bottom-0 z-0 font-sans">
       <div className="h-screen w-screen relative z-10" style={{ padding: 0 }}>
-        {/* Sidebar Overlay for Mobile */}
-        {(!sidebarCollapsed && window.innerWidth <= 900) && (
-          <div
-            className="fixed top-0 left-0 w-full h-full bg-black bg-opacity-40 z-[1000]"
-            onClick={() => setSidebarCollapsed(true)}
-          />
-        )}
         {/* Sidebar */}
         <aside
           className={
@@ -433,7 +510,7 @@ function App() {
               <button
                 className="bg-gradient-to-tr from-green-400 to-blue-500 rounded-full w-10 h-10 flex items-center justify-center text-2xl shadow-lg border-4 border-[#23263a] mr-2 hover:scale-105 transition-transform"
                 title="Account/Settings"
-                onClick={() => user ? setShowProfile(true) : setShowAuthModal(true)}
+                onClick={() => user ? setShowLogoutModal(true) : setShowAuthModal(true)}
               >
                 {user ? (
                   <span>{avatar}</span>
@@ -459,7 +536,31 @@ function App() {
             )}
           </div>
           {!sidebarCollapsed && <button className="w-[85%] mx-auto mb-4 py-2 rounded-xl bg-gradient-to-r from-green-400 to-blue-500 text-white font-bold shadow hover:from-green-500 hover:to-blue-600 transition-colors" onClick={handleNewSession}>New Analysis +</button>}
-          {!sidebarCollapsed && <div className="text-gray-400 font-semibold text-xs uppercase tracking-widest px-7 mb-2 mt-2">My Analyses</div>}
+          {!sidebarCollapsed && (
+            <div className="flex items-center justify-between px-7 mb-2 mt-2">
+              <div className="text-gray-400 font-semibold text-xs uppercase tracking-widest">My Analyses</div>
+              <a
+                href="#"
+                className="text-xs text-red-400 hover:underline ml-2"
+                style={{ fontWeight: 500 }}
+                onClick={async e => {
+                  e.preventDefault();
+                  if (user && user.token) {
+                    await fetch(`${BACKEND_URL}/chats`, {
+                      method: 'DELETE',
+                      headers: { Authorization: user.token },
+                    });
+                  }
+                  setSessions([createInitialSession()]);
+                  setActiveSession(Date.now());
+                  setChat([]);
+                  setShowDefaultHome(true);
+                }}
+              >
+                clear all
+              </a>
+            </div>
+          )}
           {!sidebarCollapsed && (
             <ul className="flex-1 overflow-y-auto px-2">
               {sessions.map((s) => (
@@ -486,166 +587,198 @@ function App() {
               ))}
             </ul>
           )}
+          {isAdmin && (
+            <button
+              className="w-[85%] mx-auto mb-4 py-2 rounded-xl bg-gradient-to-r from-red-400 to-red-500 text-white font-bold shadow hover:from-red-500 hover:to-red-600 transition-colors"
+              onClick={openAdminPanelDirect}
+            >
+              Admin Panel
+            </button>
+          )}
         </aside>
+
         {/* Main panel */}
         <main className="flex-1 flex flex-col items-center justify-start bg-none relative z-0 transition-all duration-300 px-2 md:px-8 min-h-screen w-screen"
           style={{ padding: isMobile ? 16 : 0, boxSizing: 'border-box' }}
         >
-          <div className="w-full flex flex-col items-center gap-2 pt-2 pb-4 px-0 mb-0 relative">
-            <span
-              className="text-gray-400 text-xl self-start cursor-pointer select-none transition-colors hover:bg-gray-800 hover:text-green-500 px-3 py-1 rounded mb-2"
-              onClick={() => setSidebarCollapsed(v => !v)}
-            >
-              {sidebarCollapsed ? '>' : '<'}
-            </span>
-          </div>
-          {showDefaultHome ? (
-            <div className="flex flex-col items-center justify-center h-[70vh] w-full animate-fadeIn mt-12">
-              <div className="relative w-full max-w-xl mx-auto rounded-[2.5rem] p-10 bg-gradient-to-br from-[#23263a]/80 via-[#1e293b]/80 to-[#0a0f0c]/80 backdrop-blur-xl shadow-2xl border border-white/20 flex flex-col items-center transition-all duration-300">
-                <div className="flex w-full justify-center">
-                  <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-24 h-24 rounded-full bg-gradient-to-tr from-green-400 to-blue-400 flex items-center justify-center shadow-xl border-4 border-white animate-bounce-slow z-10">
-                    <img src="/favicon.ico" alt="Panda Logo" className="w-16 h-16" />
-                  </div>
-                </div>
-                <h1 className="text-4xl md:text-5xl mb-3 text-green-400 font-extrabold text-center tracking-tight leading-tight drop-shadow-lg mt-16">Welcome to Panda Sentiment Chat!</h1>
-                <p className="text-lg md:text-xl text-gray-100 max-w-2xl text-center mb-8 font-medium">
-                  Instantly analyze the sentiment of your messages. Register or log in to chat with Panda and get real-time feedback on your text's mood.
-                </p>
-                <button
-                  className="bg-gradient-to-r from-green-500 to-blue-500 text-white rounded-2xl px-10 py-3 text-xl font-bold shadow-xl mb-3 hover:scale-105 hover:from-green-600 hover:to-blue-600 transition-all duration-200 animate-pulse"
-                  onClick={() => setShowDefaultHome(false)}
-                >
-                  Start your positive journey!
-                </button>
-                <div className="mt-6 text-center text-white/80 text-base italic">
-                  "Panda AI helps you understand the mood of your words. Try it now!"
-                </div>
-              </div>
-              <style>{`
-                @keyframes bounce-slow { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
-                .animate-bounce-slow { animation: bounce-slow 2.5s infinite; }
-                /* Custom scrollbar styles for chat area only */
-                .custom-scrollbar::-webkit-scrollbar {
-                  width: 10px;
-                  background: #23263a;
-                }
-                .custom-scrollbar::-webkit-scrollbar-thumb {
-                  background: linear-gradient(135deg, #22c55e 0%, #3b82f6 100%);
-                  border-radius: 8px;
-                }
-                .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-                  background: linear-gradient(135deg, #16a34a 0%, #2563eb 100%);
-                }
-                .custom-scrollbar::-webkit-scrollbar-track {
-                  background: #181c2b;
-                  border-radius: 8px;
-                }
-                /* Firefox */
-                .custom-scrollbar {
-                  scrollbar-width: thin;
-                  scrollbar-color: #22c55e #181c2b;
-                }
-              `}</style>
-            </div>
+          {showAdminPanel ? (
+            <AdminPanel onClose={() => setShowAdminPanel(false)} />
           ) : (
             <>
-              {/* Only show the chat and welcome panel logic, no activeTab checks */}
-              {hasStarted ? (
-                <div className="flex flex-col w-full max-w-3xl h-[70vh] bg-gradient-to-br from-[#23263a]/80 via-[#1e293b]/80 to-[#0a0f0c]/80 rounded-[2.5rem] shadow-2xl px-16 py-12 text-white animate-popIn text-center backdrop-blur-xl border border-white/20 transition-all duration-300 overflow-hidden">
-                  <div ref={chatWindowRef} className="flex-1 overflow-y-auto space-y-3 pr-2 text-center custom-scrollbar">
-                    {chat.map((msg, idx) => (
-                      <div
-                        key={idx}
-                        className={
-                          msg.sender === 'user'
-                            ? 'flex justify-end'
-                            : 'flex justify-start'
-                        }
-                      >
-                        <div className={
-                          msg.sender === 'user'
-                            ? 'bg-gradient-to-r from-green-500 to-green-400 text-white rounded-2xl px-5 py-3 max-w-xs shadow-md text-right font-bold'
-                            : 'bg-[#181c2b] text-white rounded-2xl px-5 py-3 max-w-xs shadow-md text-left font-bold'
-                        }>
-                          <span className="text-white" style={{wordBreak: 'break-word'}}>{msg.text}</span>
-                          <div className="text-xs text-gray-300 mt-1 text-right">{msg.time}</div>
-                        </div>
+              {showDefaultHome ? (
+                <div className="flex flex-col items-center justify-center h-[70vh] w-full animate-fadeIn mt-12">
+                  <div className="relative w-full max-w-xl mx-auto rounded-[2.5rem] p-10 bg-gradient-to-br from-[#23263a]/80 via-[#1e293b]/80 to-[#0a0f0c]/80 backdrop-blur-xl shadow-2xl border border-white/20 flex flex-col items-center transition-all duration-300">
+                    <div className="flex w-full justify-center">
+                      <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-24 h-24 rounded-full bg-gradient-to-tr from-green-400 to-blue-400 flex items-center justify-center shadow-xl border-4 border-white animate-bounce-slow z-10">
+                        <img src="/favicon.ico" alt="Panda Logo" className="w-16 h-16" />
                       </div>
-                    ))}
-                  </div>
-                  <form className="flex items-center mt-4 gap-2" onSubmit={handleSend}>
-                    <input
-                      className="flex-1 rounded-lg px-4 py-2 bg-[#23263a]/80 text-white border border-[#2e3250] focus:border-blue-400 focus:ring-2 focus:ring-blue-400 outline-none transition text-center"
-                      placeholder={user ? "Type your message..." : "Login to start chatting..."}
-                      value={message}
-                      onChange={e => setMessage(e.target.value)}
-                      disabled={!user || loading}
-                    />
-                    <button className="bg-gradient-to-r from-green-500 to-blue-500 text-white rounded-lg px-5 py-2 font-bold text-lg shadow hover:scale-105 hover:from-green-600 hover:to-blue-600 transition-all duration-200 text-center" type="submit" disabled={!user || loading || !message.trim()}>
-                      →
+                    </div>
+                    <h1 className="text-4xl md:text-5xl mb-3 text-green-400 font-extrabold text-center tracking-tight leading-tight drop-shadow-lg mt-16">Welcome to Panda Sentiment Chat!</h1>
+                    <p className="text-lg md:text-xl text-gray-100 max-w-2xl text-center mb-8 font-medium">
+                      Instantly analyze the sentiment of your messages. Register or log in to chat with Panda and get real-time feedback on your text's mood.
+                    </p>
+                    <button
+                      className="bg-gradient-to-r from-green-500 to-blue-500 text-white rounded-2xl px-10 py-3 text-xl font-bold shadow-xl mb-3 hover:scale-105 hover:from-green-600 hover:to-blue-600 transition-all duration-200 animate-pulse"
+                      onClick={() => setShowDefaultHome(false)}
+                    >
+                      Start your positive journey!
                     </button>
-                  </form>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center mx-auto mt-4 bg-gradient-to-br from-[#23263a]/80 via-[#1e293b]/80 to-[#0a0f0c]/80 rounded-[2.5rem] shadow-2xl px-16 py-12 min-w-[320px] max-w-3xl w-[90vw] min-h-[220px] max-h-[600px] text-white animate-popIn text-center backdrop-blur-xl border border-white/20 transition-all duration-300">
-                  <div className="flex w-full justify-center">
-                    <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-24 h-24 rounded-full bg-gradient-to-tr from-green-400 to-blue-400 flex items-center justify-center shadow-xl border-4 border-white animate-bounce-slow z-10">
-                      <img src="/favicon.ico" alt="Panda Logo" className="w-16 h-16" />
+                    <div className="mt-6 text-center text-white/80 text-base italic">
+                      "Panda AI helps you understand the mood of your words. Try it now!"
                     </div>
                   </div>
-                  <h2 className="text-3xl font-bold mb-2 text-center text-green-400 mt-16">Welcome to Panda Sentiment Chat!</h2>
-                  <div className="text-gray-100 text-lg mb-4 text-center font-medium">
-                    Analyze the sentiment of your messages instantly. Register or log in to start chatting with Panda and get real-time feedback on your text's mood.
-                  </div>
-                  <form className="flex items-center w-full bg-[#23272a]/80 rounded-xl shadow px-4 py-2 mb-4 mt-2" onSubmit={handleSend}>
-                    <input
-                      className="flex-1 bg-transparent text-white text-base px-2 py-2 outline-none text-center"
-                      placeholder={user ? "Type your message for sentiment analysis..." : "Login to start chatting..."}
-                      value={message}
-                      onChange={e => setMessage(e.target.value)}
-                      disabled={!user || loading}
-                    />
-                    <button className="bg-gradient-to-r from-green-500 to-blue-500 text-white rounded-lg px-4 py-2 font-bold text-lg shadow hover:scale-105 hover:from-green-600 hover:to-blue-600 transition-all duration-200 ml-2" type="submit" disabled={!user || loading || !message.trim()}>
-                      →
-                    </button>
-                  </form>
-                  <div ref={chatWindowRef} className="w-full max-h-80 min-h-28 overflow-y-auto mt-2 bg-transparent rounded-xl p-3 text-center custom-scrollbar">
-                    {user && chat.length > 0 && chat.map((msg, idx) => (
-                      <div key={idx} className={`flex items-end mb-2 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`flex items-center ${msg.sender === 'user' ? 'flex-row-reverse' : ''}`}>
-                          <div className="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-xl text-white font-bold mr-2 ml-2">
-                            {msg.sender === 'user' ? (user ? user.name[0]?.toUpperCase() : 'U') : '🐼'}
+                  <style>{`
+                    @keyframes bounce-slow { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
+                    .animate-bounce-slow { animation: bounce-slow 2.5s infinite; }
+                    /* Custom scrollbar styles for chat area only */
+                    .custom-scrollbar::-webkit-scrollbar {
+                      width: 10px;
+                      background: #23263a;
+                    }
+                    .custom-scrollbar::-webkit-scrollbar-thumb {
+                      background: linear-gradient(135deg, #22c55e 0%, #3b82f6 100%);
+                      border-radius: 8px;
+                    }
+                    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                      background: linear-gradient(135deg, #16a34a 0%, #2563eb 100%);
+                    }
+                    .custom-scrollbar::-webkit-scrollbar-track {
+                      background: #181c2b;
+                      border-radius: 8px;
+                    }
+                    /* Firefox */
+                    .custom-scrollbar {
+                      scrollbar-width: thin;
+                      scrollbar-color: #22c55e #181c2b;
+                    }
+                  `}</style>
+                </div>
+              ) : (
+                <>
+                  {/* Only show the chat and welcome panel logic, no activeTab checks */}
+                  {hasStarted ? (
+                    <div className="flex flex-col w-full max-w-3xl h-[70vh] bg-gradient-to-br from-[#23263a]/80 via-[#1e293b]/80 to-[#0a0f0c]/80 rounded-[2.5rem] shadow-2xl px-16 py-12 text-white animate-popIn text-center backdrop-blur-xl border border-white/20 transition-all duration-300 overflow-hidden">
+                      <div ref={chatWindowRef} className="flex-1 overflow-y-auto space-y-3 pr-2 text-center custom-scrollbar">
+                        {chat.map((msg, idx) => (
+                          <div
+                            key={idx}
+                            className={
+                              msg.sender === 'user'
+                                ? 'flex justify-end'
+                                : 'flex justify-start'
+                            }
+                          >
+                            <div className={
+                              msg.sender === 'user'
+                                ? 'bg-gradient-to-r from-green-500 to-green-400 text-white rounded-2xl px-5 py-3 max-w-xs shadow-md text-right font-bold'
+                                : 'bg-[#181c2b] text-white rounded-2xl px-5 py-3 max-w-xs shadow-md text-left font-bold'
+                            }>
+                              <span className="text-white" style={{wordBreak: 'break-word'}}>{msg.text}</span>
+                              <div className="text-xs text-gray-300 mt-1 text-right">{msg.time}</div>
+                            </div>
                           </div>
-                          <div className={`rounded-2xl px-4 py-2 max-w-xs shadow-md ${msg.sender === 'user' ? 'bg-gradient-to-r from-blue-500 to-blue-400 text-white' : 'bg-[#23263a] text-green-400'} text-center`}> 
-                            <b>{msg.sender === 'user' ? (user ? user.name : 'You') : 'Panda'}:</b> {msg.text}
-                            <div className="text-xs text-gray-400 mt-1 text-right">{msg.time}</div>
-                          </div>
+                        ))}
+                      </div>
+                      <form className="flex items-center mt-4 gap-2" onSubmit={handleSend}>
+                        <input
+                          className="flex-1 rounded-lg px-4 py-2 bg-[#23263a]/80 text-white border border-[#2e3250] focus:border-blue-400 focus:ring-2 focus:ring-blue-400 outline-none transition text-center"
+                          placeholder={user ? "Type your message..." : "Login to start chatting..."}
+                          value={message}
+                          onChange={e => setMessage(e.target.value)}
+                          disabled={!user || loading}
+                        />
+                        <button className="bg-gradient-to-r from-green-500 to-blue-500 text-white rounded-lg px-5 py-2 font-bold text-lg shadow hover:scale-105 hover:from-green-600 hover:to-blue-600 transition-all duration-200 text-center" type="submit" disabled={!user || loading || !message.trim()}>
+                          →
+                        </button>
+                      </form>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center mx-auto mt-4 bg-gradient-to-br from-[#23263a]/80 via-[#1e293b]/80 to-[#0a0f0c]/80 rounded-[2.5rem] shadow-2xl px-16 py-12 min-w-[320px] max-w-3xl w-[90vw] min-h-[220px] max-h-[600px] text-white animate-popIn text-center backdrop-blur-xl border border-white/20 transition-all duration-300">
+                      <div className="flex w-full justify-center">
+                        <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-24 h-24 rounded-full bg-gradient-to-tr from-green-400 to-blue-400 flex items-center justify-center shadow-xl border-4 border-white animate-bounce-slow z-10">
+                          <img src="/favicon.ico" alt="Panda Logo" className="w-16 h-16" />
                         </div>
                       </div>
-                    ))}
-                    {!user && !showAuthModal && (
-                      <div className="w-full flex justify-center mt-6">
-                        <button
-                          className="bg-[#232b3a] text-white font-bold text-lg rounded-xl px-8 py-6 w-full max-w-xl shadow hover:bg-green-500 hover:text-[#181a1b] transition text-center"
-                          onClick={() => setShowAuthModal(true)}
-                        >
-                          Sign in or Sign up to chat
+                      <h2 className="text-3xl font-bold mb-2 text-center text-green-400 mt-16">Welcome to Panda Sentiment Chat!</h2>
+                      <div className="text-gray-100 text-lg mb-4 text-center font-medium">
+                        Analyze the sentiment of your messages instantly. Register or log in to start chatting with Panda and get real-time feedback on your text's mood.
+                      </div>
+                      <form className="flex items-center w-full bg-[#23272a]/80 rounded-xl shadow px-4 py-2 mb-4 mt-2" onSubmit={handleSend}>
+                        <input
+                          className="flex-1 bg-transparent text-white text-base px-2 py-2 outline-none text-center"
+                          placeholder={user ? "Type your message for sentiment analysis..." : "Login to start chatting..."}
+                          value={message}
+                          onChange={e => setMessage(e.target.value)}
+                          disabled={!user || loading}
+                        />
+                        <button className="bg-gradient-to-r from-green-500 to-blue-500 text-white rounded-lg px-4 py-2 font-bold text-lg shadow hover:scale-105 hover:from-green-600 hover:to-blue-600 transition-all duration-200 ml-2" type="submit" disabled={!user || loading || !message.trim()}>
+                          →
                         </button>
+                      </form>
+                      <div ref={chatWindowRef} className="w-full max-h-80 min-h-28 overflow-y-auto mt-2 bg-transparent rounded-xl p-3 text-center custom-scrollbar">
+                        {user && chat.length > 0 && chat.map((msg, idx) => (
+                          <div key={idx} className={`flex items-end mb-2 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                            <div className={`flex items-center ${msg.sender === 'user' ? 'flex-row-reverse' : ''}`}>
+                              <div className="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-xl text-white font-bold mr-2 ml-2">
+                                {msg.sender === 'user' ? (user ? user.name[0]?.toUpperCase() : 'U') : '🐼'}
+                              </div>
+                              <div className={`rounded-2xl px-4 py-2 max-w-xs shadow-md ${msg.sender === 'user' ? 'bg-gradient-to-r from-blue-500 to-blue-400 text-white' : 'bg-[#23263a] text-green-400'} text-center`}> 
+                                <b>{msg.sender === 'user' ? (user ? user.name : 'You') : 'Panda'}:</b> {msg.text}
+                                <div className="text-xs text-gray-400 mt-1 text-right">{msg.time}</div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                        {!user && !showAuthModal && (
+                          <div className="w-full flex justify-center mt-6">
+                            <button
+                              className="bg-[#232b3a] text-white font-bold text-lg rounded-xl px-8 py-6 w-full max-w-xl shadow hover:bg-green-500 hover:text-[#181a1b] transition text-center"
+                              onClick={() => setShowAuthModal(true)}
+                            >
+                              Sign in or Sign up to chat
+                            </button>
+                          </div>
+                        )}
+                        {user && !hasStarted && (
+                          <div className="w-full text-center font-bold text-2xl text-green-500 mt-6 tracking-wide">
+                            Start your positive journey! 🚀
+                          </div>
+                        )}
                       </div>
-                    )}
-                    {user && !hasStarted && (
-                      <div className="w-full text-center font-bold text-2xl text-green-500 mt-6 tracking-wide">
-                        Start your positive journey! 🚀
-                      </div>
-                    )}
-                  </div>
-                </div>
+                    </div>
+                  )}
+                </>
               )}
             </>
           )}
         </main>
       </div>
-      {/* Auth Modal for Login/Signup */}
+
+      {/* Delete confirmation popup */}
+      {showDeleteDialog.open && (
+        <div className="fixed inset-0 bg-black bg-opacity-80 z-[2000] flex items-center justify-center animate-fadeIn">
+          <div className="bg-[#23263a] rounded-2xl shadow-2xl p-8 min-w-[260px] max-w-[90vw] flex flex-col items-center relative animate-popIn text-center">
+            <h2 className="text-lg font-bold mb-3 text-red-400">Delete Analysis?</h2>
+            <p className="mb-5 text-white">Are you sure you want to delete this chat log?</p>
+            <div className="flex gap-4 w-full justify-center">
+              <button
+                className="flex-1 bg-red-500 text-white rounded-lg py-2 font-bold text-lg shadow hover:bg-red-600 transition-colors"
+                onClick={() => handleDeleteSession(showDeleteDialog.sessionId)}
+                disabled={sessions.length <= 1}
+              >
+                Delete
+              </button>
+              <button
+                className="flex-1 bg-gray-600 text-white rounded-lg py-2 font-bold text-lg shadow hover:bg-gray-700 transition-colors"
+                onClick={() => setShowDeleteDialog({ open: false, sessionId: null })}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showAuthModal && (
         <div className="fixed inset-0 bg-black bg-opacity-80 z-[2000] flex items-center justify-center animate-fadeIn">
           <div className="bg-[#23263a] rounded-3xl shadow-2xl p-10 min-w-[350px] max-w-[95vw] flex flex-col items-center relative animate-popIn" style={{boxShadow: '0 8px 40px 0 rgba(0,0,0,0.45)'}}>
@@ -712,9 +845,10 @@ function App() {
           </div>
         </div>
       )}
-      {showLogoutModal && (
+
+      {showLogoutModal && user && (
         <div className="fixed inset-0 bg-black bg-opacity-80 z-[2000] flex items-center justify-center animate-fadeIn">
-          <div className="bg-[#23263a] rounded-2xl shadow-2xl p-9 min-w-[280px] max-w-[90vw] flex flex-col items-center relative animate-popIn">
+          <div className="bg-[#23263a] rounded-2xl shadow-2xl p-9 min-w-[320px] max-w-[90vw] flex flex-col items-center relative animate-popIn text-center">
             <button
               className="absolute top-4 right-5 text-gray-400 text-3xl font-bold hover:text-blue-400 transition-colors"
               aria-label="Close"
@@ -722,7 +856,23 @@ function App() {
             >
               ×
             </button>
-            <h2 className="text-xl font-bold mb-3 text-green-500">Confirm Logout</h2>
+            <div className="flex flex-col items-center mb-4">
+              <div className="text-5xl mb-2">{avatar}</div>
+              <div className="font-bold text-lg text-white mb-1">{user.name}</div>
+              <div className="text-gray-400 text-base mb-2">{user.email}</div>
+            </div>
+            {user.is_admin && (
+              <button
+                className="w-full bg-gradient-to-r from-red-400 to-red-500 text-white rounded-xl py-2 font-bold shadow hover:from-red-500 hover:to-red-600 transition-colors mb-4"
+                onClick={() => {
+                  setShowLogoutModal(false);
+                  openAdminPanelDirect();
+                }}
+              >
+                Admin Controls
+              </button>
+            )}
+            <h2 className="text-2xl font-bold mb-3 text-green-500">Confirm Logout</h2>
             <p className="mb-5 text-white">Are you sure you want to logout?</p>
             <div className="flex gap-4 w-full">
               <button
@@ -740,203 +890,6 @@ function App() {
             </div>
           </div>
         </div>
-      )}
-      {showDeleteDialog.open && (
-        <div className="fixed inset-0 bg-black bg-opacity-80 z-[2000] flex items-center justify-center animate-fadeIn">
-          <div className="bg-[#23263a] rounded-2xl shadow-2xl p-8 min-w-[260px] max-w-[90vw] flex flex-col items-center relative animate-popIn text-center">
-            <h2 className="text-lg font-bold mb-3 text-red-400">Delete Analysis?</h2>
-            <p className="mb-5 text-white">Are you sure you want to delete this chat log?</p>
-            <div className="flex gap-4 w-full justify-center">
-              <button
-                className="flex-1 bg-red-500 text-white rounded-lg py-2 font-bold text-lg shadow hover:bg-red-600 transition-colors"
-                onClick={() => handleDeleteSession(showDeleteDialog.sessionId)}
-                disabled={sessions.length <= 1}
-              >
-                Delete
-              </button>
-              <button
-                className="flex-1 bg-gray-600 text-white rounded-lg py-2 font-bold text-lg shadow hover:bg-gray-700 transition-colors"
-                onClick={() => setShowDeleteDialog({ open: false, sessionId: null })}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      {showProfile && user && (
-        <div className="fixed inset-0 bg-black bg-opacity-80 z-[2000] flex items-center justify-center animate-fadeIn">
-          <div className="bg-[#23263a] rounded-2xl shadow-2xl p-10 min-w-[280px] max-w-[90vw] flex flex-col items-center relative animate-popIn text-center">
-            <div className="text-5xl mb-3">{avatar}</div>
-            <div className="font-bold text-xl mb-1 text-white">{user.name}</div>
-            <div className="text-gray-400 text-base mb-4">{user.email}</div>
-            <button
-              className="w-full bg-red-500 text-white rounded-lg py-3 font-bold text-lg shadow hover:bg-red-600 transition-colors mb-2"
-              onClick={() => { handleLogout(); setShowProfile(false); }}
-            >
-              Logout
-            </button>
-            <button
-              className="absolute top-4 right-5 text-gray-400 text-3xl font-bold hover:text-blue-400 transition-colors"
-              aria-label="Close"
-              onClick={() => setShowProfile(false)}
-            >
-              ×
-            </button>
-          </div>
-        </div>
-      )}
-      {/* NavBar with Panda AI and logo */}
-      <nav className="w-full flex flex-col items-center justify-center py-4 bg-gradient-to-r from-green-500 via-blue-500 to-green-400 shadow-lg mb-2" style={{position: 'sticky', top: 0, zIndex: 50}}>
-        <div className="flex flex-col items-center">
-          <img src="/favicon.ico" alt="Panda Logo" className="w-16 h-16 mb-2 rounded-full shadow-xl border-4 border-white" />
-          <span className="text-2xl font-extrabold text-white tracking-tight drop-shadow-lg">Panda AI</span>
-        </div>
-      </nav>
-      {/* Hero Section with glassmorphism and animated gradient background */}
-      {showDefaultHome ? (
-        <div className="flex flex-col items-center justify-center h-[70vh] w-full animate-fadeIn mt-12">
-          <div className="relative w-full max-w-xl mx-auto rounded-[2.5rem] p-10 bg-gradient-to-br from-[#23263a]/80 via-[#1e293b]/80 to-[#0a0f0c]/80 backdrop-blur-xl shadow-2xl border border-white/20 flex flex-col items-center transition-all duration-300">
-            <div className="flex w-full justify-center">
-              <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-24 h-24 rounded-full bg-gradient-to-tr from-green-400 to-blue-400 flex items-center justify-center shadow-xl border-4 border-white animate-bounce-slow z-10">
-                <img src="/favicon.ico" alt="Panda Logo" className="w-16 h-16" />
-              </div>
-            </div>
-            <h1 className="text-4xl md:text-5xl mb-3 text-green-400 font-extrabold text-center tracking-tight leading-tight drop-shadow-lg mt-16">Welcome to Panda Sentiment Chat!</h1>
-            <p className="text-lg md:text-xl text-gray-100 max-w-2xl text-center mb-8 font-medium">
-              Instantly analyze the sentiment of your messages. Register or log in to chat with Panda and get real-time feedback on your text's mood.
-            </p>
-            <button
-              className="bg-gradient-to-r from-green-500 to-blue-500 text-white rounded-2xl px-10 py-3 text-xl font-bold shadow-xl mb-3 hover:scale-105 hover:from-green-600 hover:to-blue-600 transition-all duration-200 animate-pulse"
-              onClick={() => setShowDefaultHome(false)}
-            >
-              Start your positive journey!
-            </button>
-            <div className="mt-6 text-center text-white/80 text-base italic">
-              "Panda AI helps you understand the mood of your words. Try it now!"
-            </div>
-          </div>
-          <style>{`
-            @keyframes bounce-slow { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
-            .animate-bounce-slow { animation: bounce-slow 2.5s infinite; }
-            /* Custom scrollbar styles for chat area only */
-            .custom-scrollbar::-webkit-scrollbar {
-              width: 10px;
-              background: #23263a;
-            }
-            .custom-scrollbar::-webkit-scrollbar-thumb {
-              background: linear-gradient(135deg, #22c55e 0%, #3b82f6 100%);
-              border-radius: 8px;
-            }
-            .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-              background: linear-gradient(135deg, #16a34a 0%, #2563eb 100%);
-            }
-            .custom-scrollbar::-webkit-scrollbar-track {
-              background: #181c2b;
-              border-radius: 8px;
-            }
-            /* Firefox */
-            .custom-scrollbar {
-              scrollbar-width: thin;
-              scrollbar-color: #22c55e #181c2b;
-            }
-          `}</style>
-        </div>
-      ) : (
-        <>
-          {/* Only show the chat and welcome panel logic, no activeTab checks */}
-          {hasStarted ? (
-            <div className="flex flex-col w-full max-w-3xl h-[70vh] bg-gradient-to-br from-[#23263a]/80 via-[#1e293b]/80 to-[#0a0f0c]/80 rounded-[2.5rem] shadow-2xl px-16 py-12 text-white animate-popIn text-center backdrop-blur-xl border border-white/20 transition-all duration-300 overflow-hidden">
-              <div ref={chatWindowRef} className="flex-1 overflow-y-auto space-y-3 pr-2 text-center custom-scrollbar">
-                {chat.map((msg, idx) => (
-                  <div
-                    key={idx}
-                    className={
-                      msg.sender === 'user'
-                        ? 'flex justify-end'
-                        : 'flex justify-start'
-                    }
-                  >
-                    <div className={
-                      msg.sender === 'user'
-                        ? 'bg-gradient-to-r from-green-500 to-green-400 text-white rounded-2xl px-5 py-3 max-w-xs shadow-md text-right font-bold'
-                        : 'bg-[#181c2b] text-white rounded-2xl px-5 py-3 max-w-xs shadow-md text-left font-bold'
-                    }>
-                      <span className="text-white" style={{wordBreak: 'break-word'}}>{msg.text}</span>
-                      <div className="text-xs text-gray-300 mt-1 text-right">{msg.time}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <form className="flex items-center mt-4 gap-2" onSubmit={handleSend}>
-                <input
-                  className="flex-1 rounded-lg px-4 py-2 bg-[#23263a]/80 text-white border border-[#2e3250] focus:border-blue-400 focus:ring-2 focus:ring-blue-400 outline-none transition text-center"
-                  placeholder={user ? "Type your message..." : "Login to start chatting..."}
-                  value={message}
-                  onChange={e => setMessage(e.target.value)}
-                  disabled={!user || loading}
-                />
-                <button className="bg-gradient-to-r from-green-500 to-blue-500 text-white rounded-lg px-5 py-2 font-bold text-lg shadow hover:scale-105 hover:from-green-600 hover:to-blue-600 transition-all duration-200 text-center" type="submit" disabled={!user || loading || !message.trim()}>
-                  →
-                </button>
-              </form>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center mx-auto mt-4 bg-gradient-to-br from-[#23263a]/80 via-[#1e293b]/80 to-[#0a0f0c]/80 rounded-[2.5rem] shadow-2xl px-16 py-12 min-w-[320px] max-w-3xl w-[90vw] min-h-[220px] max-h-[600px] text-white animate-popIn text-center backdrop-blur-xl border border-white/20 transition-all duration-300">
-              <div className="flex w-full justify-center">
-                <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-24 h-24 rounded-full bg-gradient-to-tr from-green-400 to-blue-400 flex items-center justify-center shadow-xl border-4 border-white animate-bounce-slow z-10">
-                  <img src="/favicon.ico" alt="Panda Logo" className="w-16 h-16" />
-                </div>
-              </div>
-              <h2 className="text-3xl font-bold mb-2 text-center text-green-400 mt-16">Welcome to Panda Sentiment Chat!</h2>
-              <div className="text-gray-100 text-lg mb-4 text-center font-medium">
-                Analyze the sentiment of your messages instantly. Register or log in to start chatting with Panda and get real-time feedback on your text's mood.
-              </div>
-              <form className="flex items-center w-full bg-[#23272a]/80 rounded-xl shadow px-4 py-2 mb-4 mt-2" onSubmit={handleSend}>
-                <input
-                  className="flex-1 bg-transparent text-white text-base px-2 py-2 outline-none text-center"
-                  placeholder={user ? "Type your message for sentiment analysis..." : "Login to start chatting..."}
-                  value={message}
-                  onChange={e => setMessage(e.target.value)}
-                  disabled={!user || loading}
-                />
-                <button className="bg-gradient-to-r from-green-500 to-blue-500 text-white rounded-lg px-4 py-2 font-bold text-lg shadow hover:scale-105 hover:from-green-600 hover:to-blue-600 transition-all duration-200 ml-2" type="submit" disabled={!user || loading || !message.trim()}>
-                  →
-                </button>
-              </form>
-              <div ref={chatWindowRef} className="w-full max-h-80 min-h-28 overflow-y-auto mt-2 bg-transparent rounded-xl p-3 text-center custom-scrollbar">
-                {user && chat.length > 0 && chat.map((msg, idx) => (
-                  <div key={idx} className={`flex items-end mb-2 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`flex items-center ${msg.sender === 'user' ? 'flex-row-reverse' : ''}`}>
-                      <div className="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-xl text-white font-bold mr-2 ml-2">
-                        {msg.sender === 'user' ? (user ? user.name[0]?.toUpperCase() : 'U') : '🐼'}
-                      </div>
-                      <div className={`rounded-2xl px-4 py-2 max-w-xs shadow-md ${msg.sender === 'user' ? 'bg-gradient-to-r from-blue-500 to-blue-400 text-white' : 'bg-[#23263a] text-green-400'} text-center`}> 
-                        <b>{msg.sender === 'user' ? (user ? user.name : 'You') : 'Panda'}:</b> {msg.text}
-                        <div className="text-xs text-gray-400 mt-1 text-right">{msg.time}</div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                {!user && !showAuthModal && (
-                  <div className="w-full flex justify-center mt-6">
-                    <button
-                      className="bg-[#232b3a] text-white font-bold text-lg rounded-xl px-8 py-6 w-full max-w-xl shadow hover:bg-green-500 hover:text-[#181a1b] transition text-center"
-                      onClick={() => setShowAuthModal(true)}
-                    >
-                      Sign in or Sign up to chat
-                    </button>
-                  </div>
-                )}
-                {user && !hasStarted && (
-                  <div className="w-full text-center font-bold text-2xl text-green-500 mt-6 tracking-wide">
-                    Start your positive journey! 🚀
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </>
       )}
     </div>
   );
