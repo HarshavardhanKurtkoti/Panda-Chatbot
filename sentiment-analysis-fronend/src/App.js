@@ -1,8 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import AdminPanel from './AdminPanel'; // Import the new AdminPanel component
 
-// Backend base URL (switches between env and localhost)
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "http://127.0.0.1:5000";
+// Use REACT_APP_BACKEND_URL_LOCAL if running on localhost, otherwise use REACT_APP_BACKEND_URL
+const BACKEND_URL = (() => {
+  const local = process.env.REACT_APP_BACKEND_URL_LOCAL;
+  const prod = process.env.REACT_APP_BACKEND_URL;
+  const host = window.location.hostname;
+  if (host === 'localhost' || host === '127.0.0.1') {
+    return local || prod;
+  }
+  return prod || local;
+})();
 
 // Replace the avatar icon with a user icon SVG for login/signup
 const UserIcon = () => (
@@ -42,7 +50,6 @@ function App() {
 
   const [showDeleteDialog, setShowDeleteDialog] = useState({ open: false, sessionId: null });
 
-  const [showProfile, setShowProfile] = useState(false);
   const [avatar, setAvatar] = useState(getRandomAvatar());
 
   const [showLoadingAnim, setShowLoadingAnim] = useState(false);
@@ -153,56 +160,6 @@ function App() {
       }
     };
     fetchChats();
-  }, [user]);
-
-  // Real-time polling for sidebar sessions
-  useEffect(() => {
-    if (!user || !user.token) return;
-    const fetchChats = async () => {
-      try {
-        const res = await fetch(`${BACKEND_URL}/chats`, {
-          headers: { Authorization: user.token },
-        });
-        const data = await res.json();
-        let chats = [];
-        if (res.ok && data.chats) {
-          chats = data.chats.map(chat => {
-            let createdDate;
-            try {
-              createdDate = new Date(chat.created);
-              if (isNaN(createdDate.getTime()) || createdDate.getFullYear() === 1970) {
-                createdDate = new Date();
-              }
-            } catch {
-              createdDate = new Date();
-            }
-            return {
-              ...chat,
-              created: createdDate,
-            };
-          });
-        }
-        // Only create a Welcome Chat if there are no sessions at all (not even a Welcome Chat)
-        if (!chats.length) {
-          chats = [createInitialSession()];
-        } else {
-          // Prevent duplicate Welcome Chat: filter out extra Welcome Chats, keep only the first one
-          const welcomeChats = chats.filter(c => c.title === 'Welcome Chat');
-          if (welcomeChats.length > 1) {
-            // Keep only the first Welcome Chat, remove the rest
-            const firstWelcome = welcomeChats[0];
-            chats = [firstWelcome, ...chats.filter(c => c.title !== 'Welcome Chat')];
-          }
-        }
-        setSessions(chats);
-        setActiveSession(chats[0].id);
-        setChat(chats[0].messages);
-      } catch (err) {
-        // Optionally handle error
-      }
-    };
-    fetchChats();
-    // WebSocket real-time updates
   }, [user]);
 
   // Save chat to backend whenever sessions change (except on initial load)
@@ -470,6 +427,18 @@ function App() {
 
   return (
     <div className="min-h-screen w-screen bg-gradient-to-br from-[#181c2b] via-[#23263a] to-[#0a0f0c] fixed top-0 left-0 right-0 bottom-0 z-0 font-sans">
+      {/* Menu button to open sidebar */}
+      {sidebarCollapsed && (
+        <button
+          className="fixed top-6 left-6 z-[2001] bg-[#23263a] text-white rounded-full p-3 shadow-lg hover:bg-[#22c55e] transition-colors focus:outline-none"
+          style={{ boxShadow: '0 2px 12px 0 rgba(0,0,0,0.25)' }}
+          aria-label="Open menu"
+          onClick={() => setSidebarCollapsed(false)}
+        >
+          {/* Hamburger icon */}
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+      )}
       <div className="h-screen w-screen relative z-10" style={{ padding: 0 }}>
         {/* Sidebar */}
         <aside
@@ -528,10 +497,10 @@ function App() {
           {!sidebarCollapsed && (
             <div className="flex items-center justify-between px-7 mb-2 mt-2">
               <div className="text-gray-400 font-semibold text-xs uppercase tracking-widest">My Analyses</div>
-              <a
-                href="#"
-                className="text-xs text-red-400 hover:underline ml-2"
-                style={{ fontWeight: 500 }}
+              <button
+                type="button"
+                className="text-xs text-red-400 hover:underline ml-2 bg-transparent border-none p-0 m-0"
+                style={{ fontWeight: 500, background: 'none' }}
                 onClick={async e => {
                   e.preventDefault();
                   if (user && user.token) {
@@ -547,7 +516,7 @@ function App() {
                 }}
               >
                 clear all
-              </a>
+              </button>
             </div>
           )}
           {!sidebarCollapsed && (

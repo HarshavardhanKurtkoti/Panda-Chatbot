@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { io } from 'socket.io-client';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "http://127.0.0.1:5000";
 
@@ -9,6 +10,7 @@ function AdminPanel({ onClose }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let interval;
     const fetchAdminData = async () => {
       try {
         const token = localStorage.getItem('token');
@@ -31,10 +33,14 @@ function AdminPanel({ onClose }) {
       }
     };
     fetchAdminData();
-    // Removed WebSocket real-time updates
-    // Optionally, you can set up polling if you want auto-refresh
-    // let interval = setInterval(fetchAdminData, 10000); // every 10s
-    // return () => clearInterval(interval);
+    // WebSocket real-time updates
+    const socket = io(BACKEND_URL);
+    socket.on('users_updated', fetchAdminData);
+    socket.on('chats_updated', fetchAdminData);
+    return () => {
+      clearInterval(interval);
+      socket.disconnect();
+    };
   }, []);
 
   const handleDeleteUser = async (email) => {

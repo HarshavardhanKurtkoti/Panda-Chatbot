@@ -12,8 +12,28 @@ A modern, full-stack sentiment analysis chat application with user authenticatio
 - Real-time updates (WebSocket)
 
 ## Tech Stack
-- **Frontend:** React (Create React App), Tailwind CSS, socket.io-client
-- **Backend:** Flask, Flask-SocketIO, Flask-CORS, PyMongo, JWT, TextBlob
+- **Frontend:** React (Create React App), Tailwind CSS
+- **Backend:** Flask, Flask-CORS, PyMongo, JWT, TextBlob
+- **Database:** MongoDB Atlas
+- **Deployment:** Docker
+
+## Environment Setup
+
+### Backend (.env)
+Copy `sentiment-analysis-backend/.env.example` to `.env` and fill in:
+
+## Features
+- Real-time Sentiment Analysis
+- User Authentication (JWT)
+- Persistent Chat History (MongoDB)
+- Multi-Session Support
+- Modern UI/UX (React + Tailwind)
+- Admin Panel (user/chat management, stats)
+- Real-time updates (WebSocket)
+
+## Tech Stack
+- **Frontend:** React (Create React App), Tailwind CSS
+- **Backend:** Flask, Flask-CORS, PyMongo, JWT, TextBlob
 - **Database:** MongoDB Atlas
 - **Deployment:** Docker
 
@@ -25,14 +45,17 @@ Copy `sentiment-analysis-backend/.env.example` to `.env` and fill in:
 SECRET_KEY=your-very-secret-key
 MONGODB_URI=your-mongodb-uri
 ADMIN_CODE=letmeinadmin
-FRONTEND_URL=https://your-production-frontend.com
+FRONTEND_URL=https://your-production-frontend.com,http://localhost:3000
 ```
 
 ### Frontend (.env)
 Create `sentiment-analysis-fronend/.env` and set:
 ```
 REACT_APP_BACKEND_URL=https://your-production-backend.com
+REACT_APP_BACKEND_URL_LOCAL=http://localhost:5000
 ```
+
+The frontend will automatically use the correct backend URL for local development and production.
 
 ## Production Build & Deployment
 
