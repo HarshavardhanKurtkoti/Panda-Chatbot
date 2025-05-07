@@ -13,7 +13,10 @@ from functools import wraps
 app = Flask(__name__)
 frontend_url = os.environ.get('FRONTEND_URL')
 if frontend_url:
-    CORS(app, origins=[frontend_url, "http://localhost:3000", "http://127.0.0.1:3000"])
+    allowed_origins = [url.strip() for url in frontend_url.split(',')] + [
+        "http://localhost:3000", "http://127.0.0.1:3000"
+    ]
+    CORS(app, origins=allowed_origins)
 else:
     CORS(app)
 
