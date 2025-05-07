@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import AdminPanel from './AdminPanel'; // Import the new AdminPanel component
 
-// Hardcoded BACKEND_URL to http://127.0.0.1:5000 in App.js for local development consistency
-const BACKEND_URL = "http://127.0.0.1:5000";
+// Use environment variable for backend URL, fallback to localhost for dev
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "http://127.0.0.1:5000";
 
 // Replace the avatar icon with a user icon SVG for login/signup
 const UserIcon = () => (

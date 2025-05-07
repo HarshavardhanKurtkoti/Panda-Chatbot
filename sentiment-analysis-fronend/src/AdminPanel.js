@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 
-const BACKEND_URL = "http://127.0.0.1:5000";
+// Use environment variable for backend URL, fallback to localhost for dev
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "http://127.0.0.1:5000";
 
 function AdminPanel({ onClose }) {
   const [users, setUsers] = useState([]);
