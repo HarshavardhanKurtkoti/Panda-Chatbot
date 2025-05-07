@@ -9,7 +9,6 @@ A modern, full-stack sentiment analysis chat application with user authenticatio
 - Multi-Session Support
 - Modern UI/UX (React + Tailwind)
 - Admin Panel (user/chat management, stats)
-- Real-time updates (WebSocket)
 
 ## Tech Stack
 - **Frontend:** React (Create React App), Tailwind CSS
