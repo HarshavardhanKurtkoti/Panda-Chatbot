@@ -26,23 +26,31 @@ client = MongoClient(os.environ.get('MONGODB_URI', 'mongodb+srv://kurtkotiharsha
 db = client['sentiment_analysis']
 users_collection = db['users']
 chats_collection = db['chats']
-
-# --- ADMIN DECORATOR ---
+users_collection = db['users']
+chats_collection = db['chats']
 
 
 def admin_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         token = request.headers.get('Authorization')
+        if token and token.startswith('Bearer '):
+            token = token.split(' ', 1)[1]
+        print(f"[ADMIN DEBUG] Token: {token}")
         if not token:
+            print("[ADMIN DEBUG] No token provided.")
             return jsonify({'error': 'Token is missing!'}), 401
         try:
             data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
+            print(f"[ADMIN DEBUG] Decoded JWT: {data}")
             user = users_collection.find_one({'email': data['email']})
+            print(f"[ADMIN DEBUG] User found: {user}")
             if not user or not user.get('is_admin', False):
+                print("[ADMIN DEBUG] User is not admin or not found.")
                 return jsonify({'error': 'Admin access required!'}), 403
             request.user = user
-        except Exception:
+        except Exception as e:
+            print(f"[ADMIN DEBUG] Exception: {e}")
             return jsonify({'error': 'Token is invalid!'}), 401
         return f(*args, **kwargs)
     return decorated
@@ -52,6 +60,8 @@ def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         token = request.headers.get('Authorization')
+        if token and token.startswith('Bearer '):
+            token = token.split(' ', 1)[1]
         if not token:
             return jsonify({'error': 'Token is missing!'}), 401
         try:

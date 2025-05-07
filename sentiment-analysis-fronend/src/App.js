@@ -1,16 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import AdminPanel from './AdminPanel'; // Import the new AdminPanel component
 
-// Use REACT_APP_BACKEND_URL_LOCAL if running on localhost, otherwise use REACT_APP_BACKEND_URL
-const BACKEND_URL = (() => {
-  const local = process.env.REACT_APP_BACKEND_URL_LOCAL;
-  const prod = process.env.REACT_APP_BACKEND_URL;
-  const host = window.location.hostname;
-  if (host === 'localhost' || host === '127.0.0.1') {
-    return local || prod;
-  }
-  return prod || local;
-})();
+// Hardcoded BACKEND_URL to http://127.0.0.1:5000 in App.js for local development consistency
+const BACKEND_URL = "http://127.0.0.1:5000";
 
 // Replace the avatar icon with a user icon SVG for login/signup
 const UserIcon = () => (
@@ -236,7 +228,13 @@ function App() {
       localStorage.setItem('token', data.token);
       localStorage.setItem('name', data.name);
       localStorage.setItem('email', data.email);
-      localStorage.setItem('is_admin', data.is_admin ? 'true' : 'false'); // always store as string
+      localStorage.setItem('is_admin', data.is_admin ? 'true' : 'false');
+      console.log('Saved to localStorage:', {
+        token: data.token,
+        name: data.name,
+        email: data.email,
+        is_admin: data.is_admin
+      });
       setLoginForm({ name: '', email: '', password: '' });
       setAuthError('');
       setShowAuthModal(false); // Close the login/signup popup after successful login

@@ -1,20 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { io } from 'socket.io-client';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "http://127.0.0.1:5000";
+const BACKEND_URL = "http://127.0.0.1:5000";
 
 function AdminPanel({ onClose }) {
   const [users, setUsers] = useState([]);
   const [chats, setChats] = useState([]);
   const [stats, setStats] = useState({ users: 0, chats: 0, admins: 0 });
   const [loading, setLoading] = useState(true);
+  const [selectedUser, setSelectedUser] = useState(null);
 
   useEffect(() => {
-    let interval;
     const fetchAdminData = async () => {
       try {
         const token = localStorage.getItem('token');
-        const headers = { Authorization: token };
+        const headers = { Authorization: `Bearer ${token}` };
         const [usersRes, chatsRes, statsRes] = await Promise.all([
           fetch(`${BACKEND_URL}/admin/users`, { headers }),
           fetch(`${BACKEND_URL}/admin/chats`, { headers }),
@@ -33,14 +32,7 @@ function AdminPanel({ onClose }) {
       }
     };
     fetchAdminData();
-    // WebSocket real-time updates
-    const socket = io(BACKEND_URL);
-    socket.on('users_updated', fetchAdminData);
-    socket.on('chats_updated', fetchAdminData);
-    return () => {
-      clearInterval(interval);
-      socket.disconnect();
-    };
+    return () => {};
   }, []);
 
   const handleDeleteUser = async (email) => {
@@ -49,7 +41,7 @@ function AdminPanel({ onClose }) {
       const token = localStorage.getItem('token');
       const res = await fetch(`${BACKEND_URL}/admin/users/${email}`, {
         method: 'DELETE',
-        headers: { Authorization: token },
+        headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
         setUsers(users.filter(user => user.email !== email));
@@ -68,7 +60,7 @@ function AdminPanel({ onClose }) {
       const token = localStorage.getItem('token');
       const res = await fetch(`${BACKEND_URL}/admin/chats/${chatId}`, {
         method: 'DELETE',
-        headers: { Authorization: token },
+        headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
         setChats(chats.filter(chat => chat.id !== chatId));
@@ -108,7 +100,15 @@ function AdminPanel({ onClose }) {
           {users.map(user => (
             <tr key={user.email} className="border-b border-[#23263a] hover:bg-[#23263a]/60 transition">
               <td className="py-2 px-4 text-white">{user.name}</td>
-              <td className="py-2 px-4 text-blue-200">{user.email}</td>
+              <td className="py-2 px-4 text-blue-200">
+                <button
+                  className={`underline hover:text-blue-400 ${selectedUser === user.email ? 'font-bold text-green-400' : ''}`}
+                  onClick={() => setSelectedUser(user.email)}
+                  title="Filter chats by this user"
+                >
+                  {user.email}
+                </button>
+              </td>
               <td className="py-2 px-4">{user.is_admin ? <span className="text-red-400 font-bold">Yes</span> : <span className="text-gray-400">No</span>}</td>
               <td className="py-2 px-4">
                 <button
@@ -122,6 +122,14 @@ function AdminPanel({ onClose }) {
           ))}
         </tbody>
       </table>
+      {selectedUser && (
+        <button
+          className="mb-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 font-semibold"
+          onClick={() => setSelectedUser(null)}
+        >
+          Show All Chats
+        </button>
+      )}
 
       <h2 className="text-xl font-bold mt-8 mb-4 text-white">Manage Chats</h2>
       <table className="w-full rounded-xl overflow-hidden shadow">
@@ -133,7 +141,7 @@ function AdminPanel({ onClose }) {
           </tr>
         </thead>
         <tbody>
-          {chats.map(chat => (
+          {(selectedUser ? chats.filter(chat => chat.user_email === selectedUser) : chats).map(chat => (
             <tr key={chat.id} className="border-b border-[#23263a] hover:bg-[#23263a]/60 transition">
               <td className="py-2 px-4 text-white">{chat.title}</td>
               <td className="py-2 px-4 text-green-300">{chat.id}</td>
